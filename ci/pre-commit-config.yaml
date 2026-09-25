@@ -1,0 +1,58 @@
+# Aperion Robotics: org-wide code style for every repository (ROS 1 and ROS 2).
+#
+# CI (common.yml) runs these hooks only on the files changed in each pull request,
+# so existing repositories can adopt the style gradually.
+#
+# Run the same check locally from the root of any repository:
+#   git clone https://github.com/aperion-robotics/.github .org-ci   # once
+#   echo ".org-ci/" >> .git/info/exclude                             # once
+#   pipx run pre-commit run --config .org-ci/ci/pre-commit-config.yaml \
+#     --from-ref origin/main --to-ref HEAD
+
+exclude: '^(\.org-ci|third_party|vendor|external)/'
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files   # keeps rosbags, maps and binaries out of git
+        args: [--maxkb=5000]
+      - id: check-merge-conflict
+      - id: check-xml                 # package.xml, launch files, URDF
+      - id: check-yaml                # ROS params, launch and config files
+        args: [--allow-multiple-documents]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+
+  # C++: ROS 2 style (ament_clang_format configuration).
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v23.1.1
+    hooks:
+      - id: clang-format
+        args: [--style=file:.org-ci/ci/.clang-format]
+        types_or: [c, c++, cuda]
+
+  # Python: ROS 2 style (ament_flake8 configuration and plugins, includes pep257 checks).
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.4.1
+    hooks:
+      - id: flake8
+        args: [--config=.org-ci/ci/.flake8]
+        additional_dependencies:
+          - flake8-blind-except==0.2.1
+          - flake8-builtins==3.1.0
+          - flake8-class-newline==1.6.0
+          - flake8-comprehensions==3.17.0
+          - flake8-deprecated==2.3.0
+          - flake8-docstrings==1.7.0
+          - flake8-import-order==0.19.2
+          - flake8-quotes==3.4.0
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.3
+    hooks:
+      - id: codespell
+        args: [--ignore-words-list=ned]   # NED frame (north-east-down)

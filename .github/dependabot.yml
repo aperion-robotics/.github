@@ -1,0 +1,10 @@
+# Keeps the pinned action SHAs in this repository's workflows up to date.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
