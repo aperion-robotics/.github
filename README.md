@@ -21,8 +21,8 @@ Which workflows apply is decided by the custom property `ros_version` (set by or
 
 | Variable | Default | Example |
 |---|---|---|
-| `ROS1_DISTRO` | `noetic` | `gh variable set ROS1_DISTRO --repo aperion-robotics/<repo> --body melodic` |
-| `ROS2_DISTRO` | `humble` | `gh variable set ROS2_DISTRO --repo aperion-robotics/<repo> --body jazzy` |
+| `ROS1_DISTRO` | `melodic` | `gh variable set ROS1_DISTRO --repo aperion-robotics/<repo> --body melodic` |
+| `ROS2_DISTRO` | `jazzy` | `gh variable set ROS2_DISTRO --repo aperion-robotics/<repo> --body jazzy` |
 
 ## Run the checks locally
 
