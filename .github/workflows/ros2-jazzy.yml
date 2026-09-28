@@ -1,0 +1,50 @@
+# Aperion Robotics - ROS 2 Jazzy CI
+#
+# Long-term production ROS 2 target:
+#   ROS 2 Jazzy
+#   Ubuntu 24.04 Noble
+#
+# CI implementation:
+#   ROS Tooling Working Group - action-ros-ci
+#
+# This workflow:
+#   - creates a clean ROS 2 workspace
+#   - installs declared dependencies through rosdep
+#   - builds the workspace with colcon
+#   - runs package tests with colcon
+#   - executes package-level ament_lint tests
+#
+# ROS 2 packages are expected to use:
+#   ament_lint_auto
+#   ament_lint_common
+#
+# Intended ruleset target:
+#   ros2_jazzy = true
+
+name: ROS2 Jazzy CI
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: ROS2 Jazzy / build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    container:
+      image: rostooling/setup-ros-docker:ubuntu-noble-latest
+
+    steps:
+      - name: Build and test ROS 2 workspace
+        uses: ros-tooling/action-ros-ci@3a640b10f09b756dabe556dac5413aba369f71b0 # 0.4.8
+        with:
+          target-ros2-distro: jazzy
+          import-token: ${{ github.token }}
+
+          # Coverage will be enabled later as a dedicated quality gate.
+          coverage-result: false
