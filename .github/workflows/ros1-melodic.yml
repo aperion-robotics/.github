@@ -1,0 +1,54 @@
+# Aperion Robotics - ROS 1 Melodic CI
+#
+# ROS Melodic is EOL and is treated as a legacy compatibility target.
+#
+# CI implementation:
+#   ROS-Industrial industrial_ci
+#
+# This workflow:
+#   - builds the repository in the canonical ROS Melodic / Ubuntu Bionic environment
+#   - installs dependencies through rosdep
+#   - builds using catkin_tools
+#   - runs package tests
+#   - verifies package installation
+#   - runs catkin_lint
+#   - runs clang-tidy static analysis
+#
+# Source-code style checks such as roslint remain package-level tests.
+#
+# This workflow is intended to be required by an organization ruleset for
+# repositories with ros1_melodic = true.
+
+name: ROS1 Melodic CI
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  industrial-ci:
+    name: ROS1 Melodic / industrial_ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build, test and analyze
+        uses: ros-industrial/industrial_ci@125164b9f1883cdf1858897a7146d1bebf2be5c6
+        env:
+          ROS_DISTRO: melodic
+          ROS_REPO: main
+          BUILDER: catkin_tools
+
+          CATKIN_LINT: "true"
+          CLANG_TIDY: "true"
+
+          VERBOSE_TESTS: "true"
