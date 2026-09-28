@@ -1,0 +1,83 @@
+# Aperion Robotics organization-wide baseline CI.
+#
+# Purpose:
+#   Generic repository hygiene checks applicable to ALL managed repositories.
+#
+# IMPORTANT:
+#   - No ROS-specific checks belong here.
+#   - No C++/Python style enforcement belongs here.
+#   - ROS1/ROS2 style, build and test checks run in distro-specific workflows.
+#
+# This workflow is intended to be enforced through an organization ruleset.
+
+name: Aperion Baseline
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+env:
+  ORG_CI_REPOSITORY: aperion-robotics/.github
+  ORG_CI_REF: main
+  PRE_COMMIT_VERSION: 4.6.2
+
+jobs:
+  repository-hygiene:
+    name: repository hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout Aperion CI configuration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.ORG_CI_REPOSITORY }}
+          ref: ${{ env.ORG_CI_REF }}
+          path: .aperion-ci
+          persist-credentials: false
+
+      - name: Determine comparison base
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          elif [[ "${{ github.event_name }}" == "merge_group" ]]; then
+            BASE_SHA="${{ github.event.merge_group.base_sha }}"
+          else
+            echo "Unsupported event: ${{ github.event_name }}"
+            exit 1
+          fi
+
+          if [[ -z "${BASE_SHA}" ]]; then
+            echo "Unable to determine comparison base SHA."
+            exit 1
+          fi
+
+          echo "Using base SHA: ${BASE_SHA}"
+          echo "base_sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Run baseline pre-commit checks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pipx run \
+            --spec "pre-commit==${PRE_COMMIT_VERSION}" \
+            pre-commit run \
+            --config .aperion-ci/ci/precommit/baseline.yaml \
+            --from-ref "${{ steps.base.outputs.base_sha }}" \
+            --to-ref HEAD \
+            --show-diff-on-failure \
+            --color=always
