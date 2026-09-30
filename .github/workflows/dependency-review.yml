@@ -10,10 +10,10 @@
 name: Dependency Review
 
 on:
-    pull_request:
+  pull_request:
 
 permissions:
-    contents: read
+  contents: read
 
 jobs:
     dependency-review:
