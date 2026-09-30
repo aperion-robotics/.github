@@ -1,0 +1,52 @@
+# Aperion Robotics generic repository checks.
+#
+# These checks intentionally contain NO ROS-specific C++ or Python style rules.
+# ROS-specific linting belongs in the ROS distro CI workflows.
+
+minimum_pre_commit_version: "4.6.2"
+
+exclude: |
+  (?x)^(
+    third_party/|
+    vendor/|
+    external/|
+    \.aperion-ci/
+  )
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args:
+          # Prevent accidental commits of large binaries, bag files, datasets,
+          # archives, etc. Legitimate large assets should use an explicitly
+          # approved storage mechanism.
+          - --maxkb=20000
+          - --enforce-all
+
+      - id: check-case-conflict
+
+      - id: check-merge-conflict
+
+      - id: check-symlinks
+
+      - id: check-yaml
+        args:
+          - --allow-multiple-documents
+
+      - id: check-json
+
+      - id: check-toml
+
+      - id: check-xml
+
+      - id: detect-private-key
+
+      - id: end-of-file-fixer
+
+      - id: mixed-line-ending
+        args:
+          - --fix=lf
+
+      - id: trailing-whitespace

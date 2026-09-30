@@ -1,0 +1,171 @@
+# Aperion Robotics organization-wide baseline CI.
+#
+# Purpose:
+#   Generic repository hygiene checks applicable to all managed repositories.
+#
+# IMPORTANT:
+#   - No ROS-specific checks belong here.
+#   - No C++/Python style enforcement belongs here.
+#   - ROS1/ROS2 style, build and test checks run in distro-specific workflows.
+#
+# This workflow is intended to be enforced through organization rulesets.
+
+name: Aperion Baseline
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+env:
+  PRE_COMMIT_VERSION: 4.6.2
+
+jobs:
+  repository-hygiene:
+    name: repository hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Consumer repositories use the approved organization configuration
+      # from aperion-robotics/.github@main.
+      #
+      # When this workflow runs inside aperion-robotics/.github itself,
+      # the configuration under review is already present in the working tree.
+      - name: Checkout approved Aperion CI configuration
+        if: ${{ github.repository != 'aperion-robotics/.github' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: aperion-robotics/.github
+          ref: main
+          path: .aperion-ci
+          persist-credentials: false
+
+      - name: Determine comparison base
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "${{ github.event_name }}" in
+            pull_request)
+              BASE_SHA="${{ github.event.pull_request.base.sha }}"
+              ;;
+            merge_group)
+              BASE_SHA="${{ github.event.merge_group.base_sha }}"
+              ;;
+            *)
+              echo "Unsupported event: ${{ github.event_name }}"
+              exit 1
+              ;;
+          esac
+
+          if [[ -z "${BASE_SHA}" ]]; then
+            echo "Unable to determine comparison base SHA."
+            exit 1
+          fi
+
+          echo "Using base SHA: ${BASE_SHA}"
+          echo "base_sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Select baseline configuration
+        id: config
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_REPOSITORY" == "aperion-robotics/.github" ]]; then
+            CONFIG="ci/precommit/baseline.yaml"
+          else
+            CONFIG=".aperion-ci/ci/precommit/baseline.yaml"
+          fi
+
+          if [[ ! -f "$CONFIG" ]]; then
+            echo "Baseline configuration not found: $CONFIG"
+            exit 1
+          fi
+
+          echo "Using configuration: $CONFIG"
+          echo "path=$CONFIG" >> "$GITHUB_OUTPUT"
+
+      - name: Validate baseline configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pipx run \
+            --spec "pre-commit==${PRE_COMMIT_VERSION}" \
+            pre-commit validate-config \
+            "${{ steps.config.outputs.path }}"
+
+      - name: Run baseline pre-commit checks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pipx run \
+            --spec "pre-commit==${PRE_COMMIT_VERSION}" \
+            pre-commit run \
+            --config "${{ steps.config.outputs.path }}" \
+            --from-ref "${{ steps.base.outputs.base_sha }}" \
+            --to-ref HEAD \
+            --show-diff-on-failure \
+            --color=always
+
+  central-ci-self-test:
+    name: central CI self-test
+    if: ${{ github.repository == 'aperion-robotics/.github' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout central CI repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install actionlint
+        shell: bash
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+
+          ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${ARCHIVE}"
+
+          curl -fsSL "$URL" -o "$RUNNER_TEMP/$ARCHIVE"
+
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/$ARCHIVE" \
+            | sha256sum -c -
+
+          tar -xzf "$RUNNER_TEMP/$ARCHIVE" \
+            -C "$RUNNER_TEMP" \
+            actionlint
+
+      - name: Validate GitHub Actions workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          "$RUNNER_TEMP/actionlint" \
+            .github/workflows/*.yml
+
+      - name: Validate central pre-commit configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pipx run \
+            --spec "pre-commit==${PRE_COMMIT_VERSION}" \
+            pre-commit validate-config \
+            ci/precommit/baseline.yaml
