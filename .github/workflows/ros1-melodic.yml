@@ -31,6 +31,10 @@ permissions:
 jobs:
   industrial-ci:
     name: ROS1 Melodic / industrial_ci
+
+    # The central .github repository contains CI configuration, not ROS code.
+    if: ${{ github.repository != 'aperion-robotics/.github' }}
+
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -49,6 +53,8 @@ jobs:
           BUILDER: catkin_tools
 
           CATKIN_LINT: "true"
+
           CLANG_TIDY: "true"
+          CLANG_TIDY_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
 
           VERBOSE_TESTS: "true"

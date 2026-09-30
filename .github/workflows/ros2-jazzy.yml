@@ -33,11 +33,14 @@ permissions:
 jobs:
   build-test:
     name: ROS2 Jazzy / build & test
+
+    if: ${{ github.repository != 'aperion-robotics/.github' }}
+
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
     container:
-      image: rostooling/setup-ros-docker:ubuntu-noble-latest
+      image: rostooling/setup-ros-docker@sha256:8cff2857878d920cb3dcc131c9bfe8800e8fde89dbfaf37030d3295680c7e31a
 
     steps:
       - name: Build and test ROS 2 workspace
