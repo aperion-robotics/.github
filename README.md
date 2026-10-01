@@ -66,7 +66,7 @@ Central GitHub Actions workflows live under:
 | `ros1-melodic.yml` | ROS 1 Melodic build, test and static analysis | `ros1_melodic = true` |
 | `ros1-noetic.yml` | ROS 1 Noetic build, test and static analysis | `ros1_noetic = true` |
 | `ros2-jazzy.yml` | ROS 2 Jazzy build and test | `ros2_jazzy = true` |
-| `dependency-review.yml` | Blocks introduction of dependencies with known high-severity vulnerabilities | managed repositories where Dependency Review is enabled |
+| `dependency-review.yml` | Blocks introduction of dependencies with known high-severity vulnerabilities | `ci_managed = true` |
 
 Third-party Actions are pinned to immutable commit SHAs. Required container images are digest-pinned where applicable.
 
