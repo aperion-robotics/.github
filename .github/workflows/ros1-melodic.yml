@@ -45,6 +45,66 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Detect source dependency manifest
+        id: source-deps
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -f ".ci/ros1-melodic.repos" ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "ROS 1 Melodic source dependency manifest found."
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No ROS 1 Melodic source dependency manifest found."
+          fi
+
+      - name: Create Aperion dependency token
+        if: steps.source-deps.outputs.present == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.APERION_CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.APERION_CI_APP_PRIVATE_KEY }}
+          owner: aperion-robotics
+          permission-contents: read
+
+      - name: Import Aperion source dependencies
+        if: steps.source-deps.outputs.present == 'true'
+        shell: bash
+        env:
+          APERION_CI_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p .aperion-upstream
+
+          python3 -m venv "${RUNNER_TEMP}/vcstool-venv"
+
+          "${RUNNER_TEMP}/vcstool-venv/bin/pip" \
+            install \
+            --disable-pip-version-check \
+            vcstool==0.3.0
+
+          export GIT_CONFIG_GLOBAL="${RUNNER_TEMP}/aperion-ci-gitconfig"
+
+          git config --global \
+            url."https://x-access-token:${APERION_CI_TOKEN}@github.com/".insteadOf \
+            "https://github.com/"
+
+          "${RUNNER_TEMP}/vcstool-venv/bin/vcs" import \
+            .aperion-upstream \
+            < .ci/ros1-melodic.repos
+
+          rm -f "${GIT_CONFIG_GLOBAL}"
+
+      - name: Configure industrial_ci source workspaces
+        if: steps.source-deps.outputs.present == 'true'
+        shell: bash
+        run: |
+          echo "UPSTREAM_WORKSPACE=.aperion-upstream" >> "$GITHUB_ENV"
+          echo "TARGET_WORKSPACE=. -.aperion-upstream" >> "$GITHUB_ENV"
+
       - name: Build, test and analyze
         uses: ros-industrial/industrial_ci@125164b9f1883cdf1858897a7146d1bebf2be5c6
         env:
