@@ -34,6 +34,7 @@ jobs:
   build-test:
     name: ROS2 Jazzy / build & test
 
+    # The central .github repository contains CI configuration, not ROS code.
     if: ${{ github.repository != 'aperion-robotics/.github' }}
 
     runs-on: ubuntu-latest
@@ -43,11 +44,50 @@ jobs:
       image: rostooling/setup-ros-docker@sha256:8cff2857878d920cb3dcc131c9bfe8800e8fde89dbfaf37030d3295680c7e31a
 
     steps:
+      - name: Checkout target repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect source dependency manifest
+        id: source-deps
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -f ".ci/ros2-jazzy.repos" ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "file=${GITHUB_WORKSPACE}/.ci/ros2-jazzy.repos" >> "$GITHUB_OUTPUT"
+            echo "ROS 2 Jazzy source dependency manifest found."
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "file=" >> "$GITHUB_OUTPUT"
+            echo "No ROS 2 Jazzy source dependency manifest found."
+          fi
+
+      - name: Create Aperion dependency token
+        if: steps.source-deps.outputs.present == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.APERION_CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.APERION_CI_APP_PRIVATE_KEY }}
+          owner: aperion-robotics
+          permission-contents: read
+
       - name: Build and test ROS 2 workspace
         uses: ros-tooling/action-ros-ci@3a640b10f09b756dabe556dac5413aba369f71b0 # 0.4.8
         with:
           target-ros2-distro: jazzy
-          import-token: ${{ github.token }}
+
+          # Empty when the repository does not define source dependencies.
+          vcs-repo-file-url: ${{ steps.source-deps.outputs.file }}
+
+          # Use the read-only GitHub App token for private dependencies.
+          # Fall back to the repository GITHUB_TOKEN when there is no
+          # private dependency manifest.
+          import-token: ${{ steps.app-token.outputs.token || github.token }}
 
           # Coverage will be enabled later as a dedicated quality gate.
           coverage-result: false
