@@ -28,6 +28,8 @@ repos:
       - id: check-case-conflict
 
       - id: check-merge-conflict
+        args:
+          - --assume-in-merge
 
       - id: check-symlinks
 
@@ -50,3 +52,39 @@ repos:
           - --fix=lf
 
       - id: trailing-whitespace
+
+  # Files that must never be committed
+  # `language: fail` rejects every matching file; no scripts.
+  - repo: local
+    hooks:
+      - id: forbidden-files
+        name: forbidden files (secrets, keys, OS artifacts)
+        language: fail
+        entry: must not be committed (secret, key or OS/editor artifact); remove it and rotate any credential it contained
+        files: (?i)(^|/)(\.env(\.[^/]*)?|[^/]*\.(pem|key|p12|pfx|jks|keystore|kdbx|swp)|id_(rsa|dsa|ecdsa|ed25519)|\.ds_store|thumbs\.db)$
+        exclude: (?i)(^|/)\.env\.(example|sample|template|dist)$
+
+  # Advisory hooks (`stages: [manual]`): CI reports them and blocks only for
+  # production repositories. Locally: pre-commit run <hook-id> --hook-stage manual
+  - repo: https://github.com/crate-ci/typos
+    rev: 7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
+    hooks:
+      - id: typos
+        args:
+          - --force-exclude # report only; upstream default rewrites files
+        stages: [manual]
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
+    hooks:
+      - id: actionlint
+        stages: [manual]
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: fa412071e4f5d44d44f9e365f4676f9df92456a2 # v1.30.1
+    hooks:
+      - id: zizmor
+        args:
+          - --no-progress
+          - --min-severity=medium
+        stages: [manual]

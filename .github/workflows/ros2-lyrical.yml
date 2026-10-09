@@ -1,8 +1,8 @@
-# Aperion Robotics - ROS 2 Jazzy CI
+# Aperion Robotics - ROS 2 Lyrical CI
 #
 # Long-term production ROS 2 target:
-#   ROS 2 Jazzy
-#   Ubuntu 24.04 Noble
+#   ROS 2 Lyrical
+#   Ubuntu 26.04 Resolute
 #
 # CI implementation:
 #   ROS Tooling Working Group - action-ros-ci
@@ -19,9 +19,9 @@
 #   ament_lint_common
 #
 # Intended ruleset target:
-#   ros2_jazzy = true
+#   ros2_lyrical = true
 
-name: ROS2 Jazzy CI
+name: ROS2 Lyrical CI
 
 on:
   pull_request:
@@ -30,9 +30,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-test:
-    name: ROS2 Jazzy / build & test
+    name: ROS2 Lyrical / build & test
 
     # The central .github repository contains CI configuration, not ROS code.
     if: ${{ github.repository != 'aperion-robotics/.github' }}
@@ -41,7 +45,8 @@ jobs:
     timeout-minutes: 60
 
     container:
-      image: rostooling/setup-ros-docker@sha256:8cff2857878d920cb3dcc131c9bfe8800e8fde89dbfaf37030d3295680c7e31a
+      # ubuntu-resolute-ros-lyrical-ros-base-latest (linux/amd64)
+      image: rostooling/setup-ros-docker@sha256:1cb73beff50713ce680ad3b1040bcad954b838fd8701686d9192c99af95d4e27
 
     steps:
       - name: Checkout target repository
@@ -56,30 +61,37 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ -f ".ci/ros2-jazzy.repos" ]]; then
+          if [[ -f ".ci/ros2-lyrical.repos" ]]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
-            echo "file=${GITHUB_WORKSPACE}/.ci/ros2-jazzy.repos" >> "$GITHUB_OUTPUT"
-            echo "ROS 2 Jazzy source dependency manifest found."
+            echo "file=${GITHUB_WORKSPACE}/.ci/ros2-lyrical.repos" >> "$GITHUB_OUTPUT"
+            echo "ROS 2 Lyrical source dependency manifest found."
+
+            # Private Aperion repositories referenced by the manifest; the
+            # dependency token is scoped to exactly these repositories.
+            repos=$(grep -oE 'github\.com[:/]aperion-robotics/[A-Za-z0-9._-]+' ".ci/ros2-lyrical.repos" \
+              | sed -E 's#.*/##; s/\.git$//' | sort -u | paste -sd, - || true)
+            echo "repositories=${repos}" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "file=" >> "$GITHUB_OUTPUT"
-            echo "No ROS 2 Jazzy source dependency manifest found."
+            echo "No ROS 2 Lyrical source dependency manifest found."
           fi
 
       - name: Create Aperion dependency token
-        if: steps.source-deps.outputs.present == 'true'
+        if: steps.source-deps.outputs.repositories != ''
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.APERION_CI_APP_CLIENT_ID }}
           private-key: ${{ secrets.APERION_CI_APP_PRIVATE_KEY }}
           owner: aperion-robotics
+          repositories: ${{ steps.source-deps.outputs.repositories }}
           permission-contents: read
 
       - name: Build and test ROS 2 workspace
         uses: ros-tooling/action-ros-ci@3a640b10f09b756dabe556dac5413aba369f71b0 # 0.4.8
         with:
-          target-ros2-distro: jazzy
+          target-ros2-distro: lyrical
 
           # Empty when the repository does not define source dependencies.
           vcs-repo-file-url: ${{ steps.source-deps.outputs.file }}

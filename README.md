@@ -36,7 +36,7 @@ Example:
 ```text
 ci_managed       = true
 ros1_noetic      = true
-ros2_jazzy       = false
+ros2_lyrical     = false
 codeql_required  = true
         |
         v
@@ -60,13 +60,13 @@ Central GitHub Actions workflows live under:
 .github/workflows/
 ```
 
-| Workflow | Purpose | Intended target |
-|---|---|---|
-| `baseline.yml` | Generic repository hygiene | `ci_managed = true` |
-| `ros1-melodic.yml` | ROS 1 Melodic build, test and static analysis | `ros1_melodic = true` |
-| `ros1-noetic.yml` | ROS 1 Noetic build, test and static analysis | `ros1_noetic = true` |
-| `ros2-jazzy.yml` | ROS 2 Jazzy build and test | `ros2_jazzy = true` |
-| `dependency-review.yml` | Blocks introduction of dependencies with known high-severity vulnerabilities | `ci_managed = true` |
+| Workflow                | Purpose                                                                      | Intended target       |
+| ----------------------- | ---------------------------------------------------------------------------- | --------------------- |
+| `baseline.yml`          | Generic repository hygiene                                                   | `ci_managed = true`   |
+| `ros1-melodic.yml`      | ROS 1 Melodic build, test and static analysis                                | `ros1_melodic = true` |
+| `ros1-noetic.yml`       | ROS 1 Noetic build, test and static analysis                                 | `ros1_noetic = true`  |
+| `ros2-lyrical.yml`      | ROS 2 Lyrical build and test                                                 | `ros2_lyrical = true` |
+| `dependency-review.yml` | Blocks introduction of dependencies with known high-severity vulnerabilities | `ci_managed = true`   |
 
 Third-party Actions are pinned to immutable commit SHAs. Required container images are digest-pinned where applicable.
 
@@ -82,16 +82,16 @@ Organization Settings
 → Custom properties
 ```
 
-| Property | Type | Values | Purpose |
-|---|---|---|---|
-| `ci_managed` | Boolean | `true`, `false` | Enables Aperion central CI |
-| `product` | Single select | `aristos`, `bluebot`, `shared`, `infrastructure`, `other` | Repository ownership/domain |
-| `quality_profile` | Single select | `production`, `development`, `experimental`, `legacy` | Engineering maturity/support level |
-| `ros1_melodic` | Boolean | `true`, `false` | Enables ROS 1 Melodic CI |
-| `ros1_noetic` | Boolean | `true`, `false` | Enables ROS 1 Noetic CI |
-| `ros2_jazzy` | Boolean | `true`, `false` | Enables ROS 2 Jazzy CI |
-| `security_tier` | Single select | `standard`, `product`, `critical` | Security importance |
-| `codeql_required` | Boolean | `true`, `false` | Makes CodeQL a required merge gate |
+| Property          | Type          | Values                                                    | Purpose                            |
+| ----------------- | ------------- | --------------------------------------------------------- | ---------------------------------- |
+| `ci_managed`      | Boolean       | `true`, `false`                                           | Enables Aperion central CI         |
+| `product`         | Single select | `aristos`, `bluebot`, `shared`, `infrastructure`, `other` | Repository ownership/domain        |
+| `quality_profile` | Single select | `production`, `development`, `experimental`, `legacy`     | Engineering maturity/support level |
+| `ros1_melodic`    | Boolean       | `true`, `false`                                           | Enables ROS 1 Melodic CI           |
+| `ros1_noetic`     | Boolean       | `true`, `false`                                           | Enables ROS 1 Noetic CI            |
+| `ros2_lyrical`    | Boolean       | `true`, `false`                                           | Enables ROS 2 Lyrical CI           |
+| `security_tier`   | Single select | `standard`, `product`, `critical`                         | Security importance                |
+| `codeql_required` | Boolean       | `true`, `false`                                           | Makes CodeQL a required merge gate |
 
 Example ARISTOS Noetic production repository:
 
@@ -101,7 +101,7 @@ product          = aristos
 quality_profile  = production
 ros1_melodic     = false
 ros1_noetic      = true
-ros2_jazzy       = false
+ros2_lyrical     = false
 security_tier    = product
 codeql_required  = true
 ```
@@ -113,7 +113,7 @@ ci_managed       = true
 product          = aristos
 quality_profile  = development
 ros1_noetic      = true
-ros2_jazzy       = true
+ros2_lyrical     = true
 security_tier    = product
 codeql_required  = true
 ```
@@ -126,7 +126,7 @@ product          = infrastructure
 quality_profile  = production
 ros1_melodic     = false
 ros1_noetic      = false
-ros2_jazzy       = false
+ros2_lyrical     = false
 security_tier    = critical
 codeql_required  = false
 ```
@@ -222,18 +222,18 @@ Required workflow:
 .github/workflows/ros1-noetic.yml
 ```
 
-### `ci-ros2-jazzy`
+### `ci-ros2-lyrical`
 
 Target:
 
 ```text
-ros2_jazzy = true
+ros2_lyrical = true
 ```
 
 Required workflow:
 
 ```text
-.github/workflows/ros2-jazzy.yml
+.github/workflows/ros2-lyrical.yml
 ```
 
 ### `security-codeql-required`
@@ -386,9 +386,15 @@ Checks include:
 - TOML syntax
 - XML syntax
 - private-key detection
+- forbidden files (`.env`, private keys, keystores, OS/editor artifacts)
 - final newline consistency
 - LF line endings
 - trailing whitespace
+
+The baseline workflow also scans new commits for secrets (TruffleHog), checks commit messages
+against Conventional Commits (commitlint, see [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages))
+and reports a non-blocking RepoHealth score. Advisory checks (`typos`, `actionlint`, `zizmor`)
+block only when `quality_profile = production`. The commit message check does not dial for `experimental` and `legacy`.
 
 Excluded paths:
 
@@ -553,13 +559,13 @@ Large formatting-only changes to legacy ROS 1 repositories should be avoided unl
 
 ---
 
-## 9. ROS 2 Jazzy policy
+## 9. ROS 2 Lyrical policy
 
 Primary ROS 2 production target:
 
 ```text
-Ubuntu 24.04 Noble
-ROS 2 Jazzy
+Ubuntu 26.04 Resolute
+ROS 2 Lyrical
 ```
 
 CI implementation:
@@ -623,7 +629,7 @@ Pull request
    +-- Dependency Review
    +-- ROS1 Melodic CI      if ros1_melodic = true
    +-- ROS1 Noetic CI       if ros1_noetic = true
-   +-- ROS2 Jazzy CI        if ros2_jazzy = true
+   +-- ROS2 Lyrical CI      if ros2_lyrical = true
    +-- CodeQL               if codeql_required = true
    |
    v
@@ -767,7 +773,7 @@ Current CI/security setup covers:
 Repository hygiene
 ROS 1 Melodic
 ROS 1 Noetic
-ROS 2 Jazzy
+ROS 2 Lyrical
 Dependency vulnerability review
 CodeQL merge enforcement where required
 Dependabot

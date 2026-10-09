@@ -31,6 +31,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   industrial-ci:
     name: ROS1 Noetic / industrial_ci
@@ -57,19 +61,26 @@ jobs:
           if [[ -f ".ci/ros1-noetic.repos" ]]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
             echo "ROS 1 source dependency manifest found."
+
+            # Private Aperion repositories referenced by the manifest; the
+            # dependency token is scoped to exactly these repositories.
+            repos=$(grep -oE 'github\.com[:/]aperion-robotics/[A-Za-z0-9._-]+' ".ci/ros1-noetic.repos" \
+              | sed -E 's#.*/##; s/\.git$//' | sort -u | paste -sd, - || true)
+            echo "repositories=${repos}" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "No ROS 1 source dependency manifest found."
           fi
 
       - name: Create Aperion dependency token
-        if: steps.source-deps.outputs.present == 'true'
+        if: steps.source-deps.outputs.repositories != ''
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.APERION_CI_APP_CLIENT_ID }}
           private-key: ${{ secrets.APERION_CI_APP_PRIVATE_KEY }}
           owner: aperion-robotics
+          repositories: ${{ steps.source-deps.outputs.repositories }}
           permission-contents: read
 
       - name: Import Aperion source dependencies
@@ -88,9 +99,11 @@ jobs:
 
           export GIT_CONFIG_GLOBAL="${RUNNER_TEMP}/aperion-ci-gitconfig"
 
-          git config --global \
-            url."https://x-access-token:${APERION_CI_TOKEN}@github.com/".insteadOf \
-            "https://github.com/"
+          if [[ -n "${APERION_CI_TOKEN}" ]]; then
+            git config --global \
+              url."https://x-access-token:${APERION_CI_TOKEN}@github.com/".insteadOf \
+              "https://github.com/"
+          fi
 
           "${RUNNER_TEMP}/vcstool-venv/bin/vcs" import \
             .aperion-upstream \

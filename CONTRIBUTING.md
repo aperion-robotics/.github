@@ -12,7 +12,7 @@ Use descriptive branch names, for example:
 feature/nav2-recovery
 fix/gnss-timeout
 refactor/localization-state
-ci/jazzy-build
+ci/lyrical-build
 ```
 
 Make focused commits and avoid mixing unrelated changes in the same pull
@@ -63,6 +63,26 @@ approved cleanup.
 
 Existing `roslint`, catkin tests, and package-specific test infrastructure
 should be preserved.
+
+## Commit messages
+
+Every commit of a pull request must follow
+[Conventional Commits](https://www.conventionalcommits.org/).
+
+For example
+`fix(aristos_behaviour): move_base_flex memory leak`.
+
+CI checks this with commitlint using
+[ci/commitlint/.commitlintrc.yml](https://github.com/aperion-robotics/.github/blob/main/ci/commitlint/.commitlintrc.yml):
+
+- type: `build`, `ci`, `chore`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style` or `test`
+- subject: not capitalized, no trailing period, header at most 100 characters
+- body and footer: preceded by a blank line, lines at most 100 characters
+- breaking changes: `feat!: ...` or a `BREAKING CHANGE:` footer
+
+When squash-merging, keep the squash commit message in the same format.
+
+Based on [this substack article](https://jcouball.substack.com/p/enforce-conventional-commits-with).
 
 ## Pull requests
 

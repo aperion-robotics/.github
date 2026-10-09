@@ -39,12 +39,12 @@ GitHub CI
 Merge
 ```
 
-## ROS 2 Jazzy
+## ROS 2 Lyrical
 
 Primary target:
 
-- Ubuntu 24.04 Noble
-- ROS 2 Jazzy
+- Ubuntu 26.04 Resolute
+- ROS 2 Lyrical
 
 For ROS 2 C/C++ formatting use the ROS-provided formatter:
 
@@ -75,10 +75,11 @@ sudo apt install -y git curl jq pipx shellcheck
 pipx ensurepath
 pipx install pre-commit
 ```
-For ROS 2 Jazzy:
+
+For ROS 2 Lyrical:
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/lyrical/setup.bash
 ```
 
 ## Documentation
