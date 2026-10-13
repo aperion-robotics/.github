@@ -20,7 +20,10 @@ resolve() {
   local referenced allowed repo rc=0
   local -a accepted=()
 
-  referenced=$(grep -ioE 'github\.com[:/]+aperion-robotics/[A-Za-z0-9._-]+' "$manifest" \
+  # Drop YAML comments first: '#' at line start or after whitespace. A '#'
+  # elsewhere (e.g. in a key or a branch name) is data and must be kept.
+  referenced=$(sed -E 's/(^|[[:space:]])#.*//' "$manifest" \
+    | grep -ioE 'github\.com[:/]+aperion-robotics/[A-Za-z0-9._-]+' \
     | sed -E 's#.*/##; s/\.git$//' | sort -fu || true)
   allowed=$(sed -E 's/#.*//; s/[[:space:]]//g' "$allowlist" | grep -v '^$' || true)
 
