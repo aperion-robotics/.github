@@ -7,12 +7,19 @@
 #
 # This workflow:
 #   - builds the repository in the canonical ROS Melodic / Ubuntu Bionic environment
+#     (industrial_ci uses the final Melodic snapshot and rosdistro tag automatically)
 #   - installs dependencies through rosdep
 #   - builds using catkin_tools
 #   - runs package tests
 #   - verifies package installation
 #   - runs catkin_lint
 #   - runs clang-tidy static analysis
+#
+# Repository files (all optional):
+#   .ci/ros1-melodic.repos  private/source dependencies (vcstool format); every
+#                           aperion-robotics repository must be allowlisted in
+#                           ci/source-deps/allowed-repositories.txt
+#   .ci/ros1-melodic.env    allowlisted industrial_ci options, see README
 #
 # Source-code style checks such as roslint remain package-level tests.
 #
@@ -32,6 +39,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  # Ref of aperion-robotics/.github that provides the CI scripts and the
+  # source dependency allowlist. Keep it equal to the ref the rulesets require.
+  APERION_CI_REF: main
+
 jobs:
   industrial-ci:
     name: ROS1 Melodic / industrial_ci
@@ -49,6 +61,22 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Checkout approved Aperion CI configuration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: aperion-robotics/.github
+          ref: ${{ env.APERION_CI_REF }}
+          path: .aperion-ci
+          persist-credentials: false
+
+      - name: Load repository CI options
+        shell: bash
+        run: |
+          .aperion-ci/ci/scripts/load-ci-options.sh .ci/ros1-melodic.env \
+            ROSDEP_SKIP_KEYS ADDITIONAL_DEBS \
+            CMAKE_ARGS TARGET_CMAKE_ARGS UPSTREAM_CMAKE_ARGS \
+            CATKIN_LINT_ARGS CLANG_TIDY_ARGS
+
       - name: Detect source dependency manifest
         id: source-deps
         shell: bash
@@ -59,10 +87,11 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
             echo "ROS 1 Melodic source dependency manifest found."
 
-            # Private Aperion repositories referenced by the manifest; the
-            # dependency token is scoped to exactly these repositories.
-            repos=$(grep -oE 'github\.com[:/]aperion-robotics/[A-Za-z0-9._-]+' ".ci/ros1-melodic.repos" \
-              | sed -E 's#.*/##; s/\.git$//' | sort -u | paste -sd, - || true)
+            # The dependency token is scoped to the allowlisted Aperion
+            # repositories that the manifest references.
+            repos=$(.aperion-ci/ci/scripts/source-deps.sh resolve \
+              .ci/ros1-melodic.repos \
+              .aperion-ci/ci/source-deps/allowed-repositories.txt)
             echo "repositories=${repos}" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
@@ -80,36 +109,16 @@ jobs:
           repositories: ${{ steps.source-deps.outputs.repositories }}
           permission-contents: read
 
+      # The token exists only in this step; industrial_ci never sees it.
       - name: Import Aperion source dependencies
         if: steps.source-deps.outputs.present == 'true'
         shell: bash
         env:
           APERION_CI_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          set -euo pipefail
-
-          mkdir -p .aperion-upstream
-
-          python3 -m venv "${RUNNER_TEMP}/vcstool-venv"
-
-          "${RUNNER_TEMP}/vcstool-venv/bin/pip" \
-            install \
-            --disable-pip-version-check \
-            vcstool==0.3.0
-
-          export GIT_CONFIG_GLOBAL="${RUNNER_TEMP}/aperion-ci-gitconfig"
-
-          if [[ -n "${APERION_CI_TOKEN}" ]]; then
-            git config --global \
-              url."https://x-access-token:${APERION_CI_TOKEN}@github.com/".insteadOf \
-              "https://github.com/"
-          fi
-
-          "${RUNNER_TEMP}/vcstool-venv/bin/vcs" import \
-            .aperion-upstream \
-            < .ci/ros1-melodic.repos
-
-          rm -f "${GIT_CONFIG_GLOBAL}"
+          .aperion-ci/ci/scripts/source-deps.sh import \
+            .ci/ros1-melodic.repos \
+            .aperion-upstream
 
       - name: Configure industrial_ci source workspaces
         if: steps.source-deps.outputs.present == 'true'
@@ -118,12 +127,23 @@ jobs:
           echo "UPSTREAM_WORKSPACE=.aperion-upstream" >> "$GITHUB_ENV"
           echo "TARGET_WORKSPACE=. -.aperion-upstream" >> "$GITHUB_ENV"
 
+      # Caches are scoped to the pull request, so later pushes and re-runs
+      # of the same pull request reuse the compiler cache.
+      - name: Cache compiler output
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-ros1-melodic-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
+          restore-keys: |
+            ccache-ros1-melodic-${{ github.event.pull_request.number || github.ref }}-
+            ccache-ros1-melodic-
+
       - name: Build, test and analyze
-        uses: ros-industrial/industrial_ci@125164b9f1883cdf1858897a7146d1bebf2be5c6
+        uses: ros-industrial/industrial_ci@125164b9f1883cdf1858897a7146d1bebf2be5c6 # master 2026-06-01 (no release tags since 2020)
         env:
           ROS_DISTRO: melodic
-          ROS_REPO: main
           BUILDER: catkin_tools
+          CCACHE_DIR: ${{ runner.temp }}/ccache
 
           CATKIN_LINT: "true"
 
