@@ -38,6 +38,15 @@ EOF
 expect_eq "resolve: no aperion repositories" \
   "$("$SCRIPTS/source-deps.sh" resolve "$WORK/public.repos" "$WORK/allow.txt")" ""
 
+cat >"$WORK/comments.repos" <<'EOF'
+# Formerly github.com/aperion-robotics/old_repo
+repositories:
+  a: {type: git, url: https://github.com/aperion-robotics/shared_msgs.git, version: fix#12}  # see github.com/aperion-robotics/other
+  "tools#legacy": {type: git, url: https://github.com/aperion-robotics/aristos_common.git, version: main}
+EOF
+expect_eq "resolve: ignores YAML comments, keeps '#' inside keys and values" \
+  "$("$SCRIPTS/source-deps.sh" resolve "$WORK/comments.repos" "$WORK/allow.txt")" "aristos_common,shared_msgs"
+
 cat >"$WORK/bad.repos" <<'EOF'
 repositories:
   a: {type: git, url: https://github.com/aperion-robotics/shared_msgs.git, version: main}
