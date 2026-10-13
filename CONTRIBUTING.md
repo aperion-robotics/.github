@@ -66,14 +66,17 @@ should be preserved.
 
 ## Commit messages
 
-Every commit of a pull request must follow
-[Conventional Commits](https://www.conventionalcommits.org/).
+The pull request title must follow
+[Conventional Commits](https://www.conventionalcommits.org/), because it
+becomes the commit message of a squash merge.
 
 For example
 `fix(aristos_behaviour): move_base_flex memory leak`.
 
-CI checks this with commitlint using
-[ci/commitlint/.commitlintrc.yml](https://github.com/aperion-robotics/.github/blob/main/ci/commitlint/.commitlintrc.yml):
+CI checks the title with commitlint using
+[ci/commitlint/.commitlintrc.yml](https://github.com/aperion-robotics/.github/blob/main/ci/commitlint/.commitlintrc.yml)
+(blocking), and the individual commits of the pull request with the same
+rules (advisory). Editing the title re-runs the check.
 
 - type: `build`, `ci`, `chore`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style` or `test`
 - subject: not capitalized, no trailing period, header at most 100 characters
@@ -81,6 +84,8 @@ CI checks this with commitlint using
 - breaking changes: `feat!: ...` or a `BREAKING CHANGE:` footer
 
 When squash-merging, keep the squash commit message in the same format.
+When merging without squash, every commit lands on the default branch, so
+make each of them follow the format too.
 
 Based on [this substack article](https://jcouball.substack.com/p/enforce-conventional-commits-with).
 
