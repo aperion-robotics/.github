@@ -59,7 +59,7 @@ jobs:
 
           # Locked commitlint (ci/commitlint/package-lock.json).
           cd .aperion-ci/ci/commitlint
-          npm ci --no-audit --no-fund --loglevel=error
+          npm ci --ignore-scripts --no-audit --no-fund --loglevel=error
 
           if ! printf '%s\n' "$PR_TITLE" \
               | npx --no-install commitlint --config .commitlintrc.yml; then

@@ -112,7 +112,7 @@ jobs:
           set -euo pipefail
 
           cd ci/commitlint
-          npm ci --no-audit --no-fund --loglevel=error
+          npm ci --ignore-scripts --no-audit --no-fund --loglevel=error
 
           lint() { printf '%b\n' "$1" | npx --no-install commitlint --config .commitlintrc.yml >/dev/null 2>&1; }
 
