@@ -79,8 +79,11 @@ repos:
     rev: 7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
     hooks:
       - id: typos
+        # Report only. These args replace (pre-commit does not append) the
+        # upstream defaults [--write-changes, --force-exclude], so files are
+        # never rewritten. --force-exclude keeps excluded paths excluded.
         args:
-          - --force-exclude # report only; upstream default rewrites files
+          - --force-exclude
         stages: [manual]
 
   - repo: https://github.com/rhysd/actionlint
