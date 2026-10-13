@@ -188,12 +188,12 @@ jobs:
           head: ${{ github.sha }}
           extra_args: --results=verified,unknown
 
-      # Lint every commit of the pull request. The last commit
-      # of a merge is also linted.
-      # These checks lead to just a warning for experimental and legacy profiles
-      - name: Check commit messages (Conventional Commits)
+      # Lint every commit of the pull request (advisory). The blocking gate is
+      # the pull request title (pr-title.yml), which becomes the squash commit
+      # message; blocking every work-in-progress commit only adds friction.
+      - name: Check commit messages (Conventional Commits, advisory)
         if: ${{ !cancelled() }}
-        continue-on-error: ${{ github.event.repository.custom_properties.quality_profile == 'experimental' || github.event.repository.custom_properties.quality_profile == 'legacy' }}
+        continue-on-error: true
         uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6.2.1
         with:
           configFile: ${{ github.repository == 'aperion-robotics/.github' && 'ci/commitlint/.commitlintrc.yml' || '.aperion-ci/ci/commitlint/.commitlintrc.yml' }}

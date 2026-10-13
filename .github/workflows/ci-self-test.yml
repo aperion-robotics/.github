@@ -105,3 +105,32 @@ jobs:
             --spec "pre-commit==${PRE_COMMIT_VERSION}" \
             pre-commit validate-config \
             ci/precommit/baseline.yaml
+
+      - name: Test commitlint configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd ci/commitlint
+          npm ci --no-audit --no-fund --loglevel=error
+
+          lint() { printf '%b\n' "$1" | npx --no-install commitlint --config .commitlintrc.yml >/dev/null 2>&1; }
+
+          rc=0
+          for msg in \
+            'fix(aristos_behaviour): handle gnss timeout' \
+            'feat!: drop melodic support' \
+            'ci: retrigger required workflows' \
+            'fix: handle gnss timeout\n\nThe driver hung when the receiver stopped.\nSee #123 for the field log.'
+          do
+            lint "$msg" || { echo "::error::rejected valid message: $msg"; rc=1; }
+          done
+          for msg in \
+            'Update CI workflows' \
+            'fix: Capitalized subject' \
+            'ci: trailing period.' \
+            'feature: unknown type'
+          do
+            if lint "$msg"; then echo "::error::accepted invalid message: $msg"; rc=1; fi
+          done
+          exit "$rc"
