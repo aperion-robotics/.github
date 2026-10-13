@@ -44,9 +44,11 @@ import_deps() {
   local vcs=vcs https_base
 
   if ! command -v vcs >/dev/null 2>&1; then
+    # vcstool 0.3.0 (latest) imports pkg_resources, which setuptools removed
+    # in 82.0.0; Python >= 3.12 venvs no longer ship setuptools at all.
     python3 -m venv "${RUNNER_TEMP:?}/vcstool-venv"
     "${RUNNER_TEMP}/vcstool-venv/bin/pip" install \
-      --disable-pip-version-check --quiet vcstool==0.3.0
+      --disable-pip-version-check --quiet vcstool==0.3.0 "setuptools<82"
     vcs="${RUNNER_TEMP}/vcstool-venv/bin/vcs"
   fi
 
