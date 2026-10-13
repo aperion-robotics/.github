@@ -1,0 +1,68 @@
+# Aperion Robotics - pull request title
+#
+# A squash merge uses the pull request title as the commit message, so the
+# title is the Conventional Commits gate (ci/commitlint/.commitlintrc.yml).
+# Commits inside a pull request are linted by the baseline as advisory only.
+#
+# Separate from the baseline so that editing the title re-runs only this
+# check. Intended to be required by the same ruleset as the baseline
+# (ci_managed = true).
+
+name: Pull Request Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Ref of aperion-robotics/.github that provides the commitlint configuration.
+  # Keep it equal to the ref the rulesets require.
+  APERION_CI_REF: main
+
+jobs:
+  title:
+    name: pull request title
+
+    # A merge group has no title; its commits come from checked pull requests.
+    if: ${{ github.event_name == 'pull_request' }}
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # In aperion-robotics/.github itself, lint against the configuration
+      # under review; elsewhere against the approved one.
+      - name: Checkout Aperion commitlint configuration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: aperion-robotics/.github
+          ref: ${{ github.repository == 'aperion-robotics/.github' && github.sha || env.APERION_CI_REF }}
+          path: .aperion-ci
+          sparse-checkout: ci/commitlint
+          persist-credentials: false
+
+      - name: Check pull request title (Conventional Commits)
+        continue-on-error: ${{ github.event.repository.custom_properties.quality_profile == 'experimental' || github.event.repository.custom_properties.quality_profile == 'legacy' }}
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          # Locked commitlint (ci/commitlint/package-lock.json).
+          cd .aperion-ci/ci/commitlint
+          npm ci --ignore-scripts --no-audit --no-fund --loglevel=error
+
+          if ! printf '%s\n' "$PR_TITLE" \
+              | npx --no-install commitlint --config .commitlintrc.yml; then
+            echo "::error::The pull request title becomes the squash commit message and must follow Conventional Commits, e.g. 'fix(aristos_behaviour): handle gnss timeout'. See https://github.com/aperion-robotics/.github/blob/main/CONTRIBUTING.md#commit-messages"
+            exit 1
+          fi

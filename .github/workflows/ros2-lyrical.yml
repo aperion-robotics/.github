@@ -11,12 +11,18 @@
 #   - creates a clean ROS 2 workspace
 #   - installs declared dependencies through rosdep
 #   - builds the workspace with colcon
-#   - runs package tests with colcon
+#   - runs the tests of this repository's packages with colcon
 #   - executes package-level ament_lint tests
 #
 # ROS 2 packages are expected to use:
 #   ament_lint_auto
 #   ament_lint_common
+#
+# Repository files (all optional):
+#   .ci/ros2-lyrical.repos  private/source dependencies (vcstool format); every
+#                           aperion-robotics repository must be allowlisted in
+#                           ci/source-deps/allowed-repositories.txt
+#   .ci/ros2-lyrical.env    allowlisted options: ROSDEP_SKIP_KEYS, CMAKE_ARGS
 #
 # Intended ruleset target:
 #   ros2_lyrical = true
@@ -34,6 +40,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  # Ref of aperion-robotics/.github that provides the CI scripts and the
+  # source dependency allowlist. Keep it equal to the ref the rulesets require.
+  APERION_CI_REF: main
+
 jobs:
   build-test:
     name: ROS2 Lyrical / build & test
@@ -45,8 +56,10 @@ jobs:
     timeout-minutes: 60
 
     container:
-      # ubuntu-resolute-ros-lyrical-ros-base-latest (linux/amd64)
-      image: rostooling/setup-ros-docker@sha256:1cb73beff50713ce680ad3b1040bcad954b838fd8701686d9192c99af95d4e27
+      # ghcr.io/ros-tooling/setup-ros-docker/setup-ros-docker-ubuntu-resolute-ros-lyrical-ros-base:master
+      # (multi-arch index digest, resolved 2026-10-13; the same build is also
+      # published as rostooling/setup-ros-docker:ubuntu-resolute-ros-lyrical-ros-base-latest)
+      image: ghcr.io/ros-tooling/setup-ros-docker/setup-ros-docker-ubuntu-resolute-ros-lyrical-ros-base@sha256:7be8d4242d2a862b9a743848eca42052a6109ae70d6bc6215697b7387f02697e
 
     steps:
       - name: Checkout target repository
@@ -54,6 +67,31 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Checkout approved Aperion CI configuration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: aperion-robotics/.github
+          ref: ${{ env.APERION_CI_REF }}
+          path: .aperion-ci
+          persist-credentials: false
+
+      - name: Load repository CI options
+        shell: bash
+        run: |
+          .aperion-ci/ci/scripts/load-ci-options.sh .ci/ros2-lyrical.env \
+            ROSDEP_SKIP_KEYS CMAKE_ARGS
+
+      # Build dependencies up to, and test only, this repository's packages.
+      # Without this, action-ros-ci also tests every imported dependency.
+      - name: List repository packages
+        id: packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          names=$(python3 .aperion-ci/ci/scripts/list-packages.py .)
+          echo "Packages under test: ${names}"
+          echo "names=${names}" >> "$GITHUB_OUTPUT"
 
       - name: Detect source dependency manifest
         id: source-deps
@@ -63,17 +101,16 @@ jobs:
 
           if [[ -f ".ci/ros2-lyrical.repos" ]]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
-            echo "file=${GITHUB_WORKSPACE}/.ci/ros2-lyrical.repos" >> "$GITHUB_OUTPUT"
             echo "ROS 2 Lyrical source dependency manifest found."
 
-            # Private Aperion repositories referenced by the manifest; the
-            # dependency token is scoped to exactly these repositories.
-            repos=$(grep -oE 'github\.com[:/]aperion-robotics/[A-Za-z0-9._-]+' ".ci/ros2-lyrical.repos" \
-              | sed -E 's#.*/##; s/\.git$//' | sort -u | paste -sd, - || true)
+            # The dependency token is scoped to the allowlisted Aperion
+            # repositories that the manifest references.
+            repos=$(.aperion-ci/ci/scripts/source-deps.sh resolve \
+              .ci/ros2-lyrical.repos \
+              .aperion-ci/ci/source-deps/allowed-repositories.txt)
             echo "repositories=${repos}" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "file=" >> "$GITHUB_OUTPUT"
             echo "No ROS 2 Lyrical source dependency manifest found."
           fi
 
@@ -88,18 +125,41 @@ jobs:
           repositories: ${{ steps.source-deps.outputs.repositories }}
           permission-contents: read
 
+      # Clone the dependencies here, while the token exists only in this step,
+      # and hand action-ros-ci a .repos file of local file:// clones.
+      # Passing the app token to action-ros-ci instead would keep it in the
+      # global git configuration during colcon build/test, readable by the
+      # code under test, and would also break the clone of this repository,
+      # which the dependency-scoped token cannot read.
+      - name: Import Aperion source dependencies
+        id: import
+        if: steps.source-deps.outputs.present == 'true'
+        shell: bash
+        env:
+          APERION_CI_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          .aperion-ci/ci/scripts/source-deps.sh import \
+            .ci/ros2-lyrical.repos \
+            "${RUNNER_TEMP}/aperion-deps" \
+            "${RUNNER_TEMP}/aperion-deps.repos"
+          echo "repos-file=${RUNNER_TEMP}/aperion-deps.repos" >> "$GITHUB_OUTPUT"
+
       - name: Build and test ROS 2 workspace
         uses: ros-tooling/action-ros-ci@3a640b10f09b756dabe556dac5413aba369f71b0 # 0.4.8
         with:
           target-ros2-distro: lyrical
+          package-name: ${{ steps.packages.outputs.names }}
 
-          # Empty when the repository does not define source dependencies.
-          vcs-repo-file-url: ${{ steps.source-deps.outputs.file }}
+          # Local clones of the source dependencies; empty without a manifest.
+          vcs-repo-file-url: ${{ steps.import.outputs.repos-file }}
 
-          # Use the read-only GitHub App token for private dependencies.
-          # Fall back to the repository GITHUB_TOKEN when there is no
-          # private dependency manifest.
-          import-token: ${{ steps.app-token.outputs.token || github.token }}
+          # action-ros-ci re-clones this repository from GitHub; the job
+          # token (contents: read on this repository only) is enough for that.
+          import-token: ${{ github.token }}
+
+          rosdep-skip-keys: ${{ env.ROSDEP_SKIP_KEYS }}
+          extra-cmake-args: ${{ env.CMAKE_ARGS }}
 
           # Coverage will be enabled later as a dedicated quality gate.
           coverage-result: false

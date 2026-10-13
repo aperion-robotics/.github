@@ -47,6 +47,14 @@ The fast repository-hygiene layer can therefore remain independent from the ROS 
 
 ---
 
+## Requirements
+
+pre-commit 4.6.2 needs Python 3.10 or newer and git 2.31 or newer.
+
+Ubuntu 18.04 (ROS Melodic) ships Python 3.6 and git 2.17, and Ubuntu 20.04 (ROS Noetic) ships Python 3.8 and
+git 2.25, so pre-commit cannot run inside those ROS 1 containers. Install it on the host (Ubuntu 22.04 or newer)
+and commit from the host; the container only needs the source tree, which is usually bind-mounted.
+
 ## Install `pipx`
 
 On Ubuntu 23.04 and newer, including Ubuntu 24.04:

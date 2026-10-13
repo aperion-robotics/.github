@@ -1,0 +1,10 @@
+# Aperion repositories that ROS CI may import as source dependencies.
+#
+# A repository's .ci/<workflow>.repos manifest may only reference the
+# aperion-robotics repositories listed here. The CI GitHub App token is
+# scoped to exactly the repositories a manifest references, and this list
+# caps that scope, so a pull request cannot grant itself read access to
+# arbitrary private repositories.
+#
+# One repository name per line, without the organization prefix.
+# Add entries through a reviewed pull request to aperion-robotics/.github.

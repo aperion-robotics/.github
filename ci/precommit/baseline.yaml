@@ -64,14 +64,26 @@ repos:
         files: (?i)(^|/)(\.env(\.[^/]*)?|[^/]*\.(pem|key|p12|pfx|jks|keystore|kdbx|swp)|id_(rsa|dsa|ecdsa|ed25519)|\.ds_store|thumbs\.db)$
         exclude: (?i)(^|/)\.env\.(example|sample|template|dist)$
 
+      # Recordings belong in approved storage; the size limit alone lets a
+      # 19 MB bag through. Small fixtures under a test directory are fine.
+      - id: forbidden-recordings
+        name: forbidden files (rosbag recordings)
+        language: fail
+        entry: rosbag recordings must not be committed outside test data; use approved storage
+        files: (?i)\.(bag|bag\.active|mcap|db3)$
+        exclude: (?i)(^|/)(test|tests|test_data|testdata)/
+
   # Advisory hooks (`stages: [manual]`): CI reports them and blocks only for
   # production repositories. Locally: pre-commit run <hook-id> --hook-stage manual
   - repo: https://github.com/crate-ci/typos
     rev: 7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
     hooks:
       - id: typos
+        # Report only. These args replace (pre-commit does not append) the
+        # upstream defaults [--write-changes, --force-exclude], so files are
+        # never rewritten. --force-exclude keeps excluded paths excluded.
         args:
-          - --force-exclude # report only; upstream default rewrites files
+          - --force-exclude
         stages: [manual]
 
   - repo: https://github.com/rhysd/actionlint
