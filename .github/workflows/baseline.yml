@@ -57,18 +57,22 @@ jobs:
       - name: Determine comparison base
         id: base
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
         run: |
           set -euo pipefail
 
-          case "${{ github.event_name }}" in
+          case "${EVENT_NAME}" in
             pull_request)
-              BASE_SHA="${{ github.event.pull_request.base.sha }}"
+              BASE_SHA="${PR_BASE_SHA}"
               ;;
             merge_group)
-              BASE_SHA="${{ github.event.merge_group.base_sha }}"
+              BASE_SHA="${MERGE_GROUP_BASE_SHA}"
               ;;
             *)
-              echo "Unsupported event: ${{ github.event_name }}"
+              echo "Unsupported event: ${EVENT_NAME}"
               exit 1
               ;;
           esac
@@ -109,51 +113,70 @@ jobs:
 
       - name: Validate baseline configuration
         shell: bash
+        env:
+          CONFIG: ${{ steps.config.outputs.path }}
         run: |
           set -euo pipefail
 
           pipx run \
             --spec "pre-commit==${PRE_COMMIT_VERSION}" \
             pre-commit validate-config \
-            "${{ steps.config.outputs.path }}"
+            "${CONFIG}"
 
       - name: Run baseline pre-commit checks
         shell: bash
+        env:
+          CONFIG: ${{ steps.config.outputs.path }}
+          BASE_SHA: ${{ steps.base.outputs.base_sha }}
         run: |
           set -euo pipefail
 
           pipx run \
             --spec "pre-commit==${PRE_COMMIT_VERSION}" \
             pre-commit run \
-            --config "${{ steps.config.outputs.path }}" \
-            --from-ref "${{ steps.base.outputs.base_sha }}" \
+            --config "${CONFIG}" \
+            --from-ref "${BASE_SHA}" \
             --to-ref HEAD \
             --show-diff-on-failure \
             --color=always
 
-      # The pre-commit checks below run even after a failed check
-      # in order to produce a report for all problems at once.
-      # These checks lead to a failure only for the production profile
+      # The checks below run even after a failed check, to report all
+      # problems at once. Advisory hooks block only for the production
+      # profile; elsewhere their findings are listed in the job summary,
+      # because a continue-on-error step otherwise looks green.
       - name: Run advisory pre-commit checks (spelling, GitHub Actions)
         if: ${{ !cancelled() }}
         continue-on-error: ${{ github.event.repository.custom_properties.quality_profile != 'production' }}
         shell: bash
+        env:
+          CONFIG: ${{ steps.config.outputs.path }}
+          BASE_SHA: ${{ steps.base.outputs.base_sha }}
         run: |
           set -euo pipefail
 
-          rc=0
-          config="${{ steps.config.outputs.path }}"
-          for hook in $(yq -r '.repos[].hooks[] | select(.stages // [] | contains(["manual"])) | .id' "$config"); do
+          failed=()
+          for hook in $(yq -r '.repos[].hooks[] | select(.stages // [] | contains(["manual"])) | .id' "${CONFIG}"); do
             pipx run \
               --spec "pre-commit==${PRE_COMMIT_VERSION}" \
               pre-commit run "$hook" \
               --hook-stage manual \
-              --config "$config" \
-              --from-ref "${{ steps.base.outputs.base_sha }}" \
+              --config "${CONFIG}" \
+              --from-ref "${BASE_SHA}" \
               --to-ref HEAD \
-              --color=always || rc=1
+              --color=always || failed+=("$hook")
           done
-          exit "$rc"
+
+          if (( ${#failed[@]} )); then
+            echo "::warning::Advisory checks reported findings: ${failed[*]}"
+            {
+              echo "### Advisory checks reported findings"
+              echo
+              echo "Hooks: \`${failed[*]}\` (details in the log of this step)."
+              echo "They block merging only when quality_profile = production."
+              echo "Reproduce locally: \`pre-commit run <hook-id> --hook-stage manual --config <baseline.yaml>\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
       # Scan for secrets on all new commits in the history
       # This tries to avoid deleted secrets being leaked from older commits
@@ -175,23 +198,3 @@ jobs:
         with:
           configFile: ${{ github.repository == 'aperion-robotics/.github' && 'ci/commitlint/.commitlintrc.yml' || '.aperion-ci/ci/commitlint/.commitlintrc.yml' }}
           helpURL: https://github.com/aperion-robotics/.github/blob/main/CONTRIBUTING.md#commit-messages
-
-      # Just a report (no fail triggers)
-      # repohealth's repository explaines the scoring system
-      # 70 was chosed arbitrarily, based on defaults
-      - name: Check repository health (non-blocking)
-        id: repohealth
-        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        continue-on-error: true
-        uses: spbuilds/repohealth@5cfba7f0c7bcb3d6eb56e6a986a946c6d8ac09a7 # v0.5.3
-        with:
-          threshold: 70
-          format: terminal
-          version: v0.5.3
-
-      - name: Show repository health score
-        if: ${{ !cancelled() && steps.repohealth.outputs.score != '' }}
-        env:
-          SCORE: ${{ steps.repohealth.outputs.score }}
-          GRADE: ${{ steps.repohealth.outputs.grade }}
-        run: echo "RepoHealth score $SCORE ($GRADE)"
