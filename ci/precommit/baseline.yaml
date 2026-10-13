@@ -28,6 +28,8 @@ repos:
       - id: check-case-conflict
 
       - id: check-merge-conflict
+        args:
+          - --assume-in-merge
 
       - id: check-symlinks
 
@@ -50,3 +52,51 @@ repos:
           - --fix=lf
 
       - id: trailing-whitespace
+
+  # Files that must never be committed
+  # `language: fail` rejects every matching file; no scripts.
+  - repo: local
+    hooks:
+      - id: forbidden-files
+        name: forbidden files (secrets, keys, OS artifacts)
+        language: fail
+        entry: must not be committed (secret, key or OS/editor artifact); remove it and rotate any credential it contained
+        files: (?i)(^|/)(\.env(\.[^/]*)?|[^/]*\.(pem|key|p12|pfx|jks|keystore|kdbx|swp)|id_(rsa|dsa|ecdsa|ed25519)|\.ds_store|thumbs\.db)$
+        exclude: (?i)(^|/)\.env\.(example|sample|template|dist)$
+
+      # Recordings belong in approved storage; the size limit alone lets a
+      # 19 MB bag through. Small fixtures under a test directory are fine.
+      - id: forbidden-recordings
+        name: forbidden files (rosbag recordings)
+        language: fail
+        entry: rosbag recordings must not be committed outside test data; use approved storage
+        files: (?i)\.(bag|bag\.active|mcap|db3)$
+        exclude: (?i)(^|/)(test|tests|test_data|testdata)/
+
+  # Advisory hooks (`stages: [manual]`): CI reports them and blocks only for
+  # production repositories. Locally: pre-commit run <hook-id> --hook-stage manual
+  - repo: https://github.com/crate-ci/typos
+    rev: 7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
+    hooks:
+      - id: typos
+        # Report only. These args replace (pre-commit does not append) the
+        # upstream defaults [--write-changes, --force-exclude], so files are
+        # never rewritten. --force-exclude keeps excluded paths excluded.
+        args:
+          - --force-exclude
+        stages: [manual]
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
+    hooks:
+      - id: actionlint
+        stages: [manual]
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: fa412071e4f5d44d44f9e365f4676f9df92456a2 # v1.30.1
+    hooks:
+      - id: zizmor
+        args:
+          - --no-progress
+          - --min-severity=medium
+        stages: [manual]

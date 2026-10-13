@@ -1,10 +1,23 @@
-# Keeps the pinned action SHAs in this repository's workflows up to date.
+# Keeps the pinned action SHAs and the locked commitlint of this repository up to date.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       actions:
+        patterns: ["*"]
+
+  # ci/commitlint/package-lock.json (pr-title.yml, ci-self-test.yml).
+  - package-ecosystem: npm
+    directory: /ci/commitlint
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      commitlint:
         patterns: ["*"]

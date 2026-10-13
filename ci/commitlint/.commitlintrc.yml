@@ -1,0 +1,24 @@
+---
+# Aperion commit message rules (Conventional Commits). Blocking for pull
+# request titles (.github/workflows/pr-title.yml), advisory for the commits
+# of a pull request (.github/workflows/baseline.yml).
+# Rules: https://commitlint.js.org/reference/rules.html
+# Format: [severity 0..2, applicability always|never, value]
+extends: '@commitlint/config-conventional'
+
+rules:
+  header-max-length: [2, always, 100]
+  type-case: [2, always, lower-case]
+  type-empty: [2, never]
+  type-enum: [2, always, [build, ci, chore, docs, feat, fix, perf, refactor, revert, style, test]]
+  scope-case: [2, always, lower-case]
+  subject-case: [2, never, [sentence-case, start-case, pascal-case, upper-case]]
+  subject-empty: [2, never]
+  subject-full-stop: [2, never, "."]
+  # Warnings, as upstream: the parser treats a body line with an issue
+  # reference (e.g. "see #123") as the start of the footer, so as errors these
+  # reject ordinary messages.
+  body-leading-blank: [1, always]
+  body-max-line-length: [2, always, 100]
+  footer-leading-blank: [1, always]
+  footer-max-line-length: [2, always, 100]

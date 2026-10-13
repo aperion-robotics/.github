@@ -39,12 +39,12 @@ GitHub CI
 Merge
 ```
 
-## ROS 2 Jazzy
+## ROS 2 Lyrical
 
 Primary target:
 
-- Ubuntu 24.04 Noble
-- ROS 2 Jazzy
+- Ubuntu 26.04 Resolute
+- ROS 2 Lyrical
 
 For ROS 2 C/C++ formatting use the ROS-provided formatter:
 
@@ -73,12 +73,16 @@ Do not automatically apply ROS 2 formatting rules to ROS 1 repositories.
 sudo apt update
 sudo apt install -y git curl jq pipx shellcheck
 pipx ensurepath
-pipx install pre-commit
+pipx install pre-commit==4.6.2
 ```
-For ROS 2 Jazzy:
+
+pre-commit 4.6.2 needs Python 3.10+ and git 2.31+, which Ubuntu 18.04 (Melodic) and 20.04 (Noetic) do not
+have. Run it on the host (Ubuntu 22.04 or newer), not inside a ROS 1 container.
+
+For ROS 2 Lyrical:
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/lyrical/setup.bash
 ```
 
 ## Documentation
@@ -86,6 +90,7 @@ source /opt/ros/jazzy/setup.bash
 - [pre-commit.md](pre-commit.md)
 - [editorconfig.md](editorconfig.md)
 - [vscode.md](vscode.md)
-- [vim.md](vim.md)
+
+Vim / Neovim: see the EditorConfig section of [editorconfig.md](editorconfig.md).
 
 Passing editor checks does not mean a change is ready to merge. GitHub CI remains authoritative.

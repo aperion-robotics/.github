@@ -43,19 +43,19 @@ Do not install an additional C++ formatter globally unless it is explicitly conf
 
 ## Why these extensions
 
-| Extension | Purpose |
-|---|---|
-| `editorconfig.editorconfig` | line endings, indentation, final newline, whitespace |
-| `ms-vscode.cpptools` | C/C++ IntelliSense, navigation, diagnostics |
-| `ms-vscode.cmake-tools` | CMake configure/build integration and diagnostics |
-| `ms-python.python` | Python language support |
-| `ms-python.autopep8` | optional ROS 2 Python formatting convenience |
-| `redhat.vscode-yaml` | YAML validation |
-| `redhat.vscode-xml` | XML validation for `package.xml`, URDF, launch XML |
-| `GitHub.vscode-github-actions` | GitHub Actions schema validation and completion |
-| `timonwong.shellcheck` | shell-script diagnostics |
-| `ms-iot.vscode-ros` | optional ROS workspace integration |
-| `emeraldwalk.RunOnSave` | optional external command execution after save |
+| Extension                      | Purpose                                              |
+| ------------------------------ | ---------------------------------------------------- |
+| `editorconfig.editorconfig`    | line endings, indentation, final newline, whitespace |
+| `ms-vscode.cpptools`           | C/C++ IntelliSense, navigation, diagnostics          |
+| `ms-vscode.cmake-tools`        | CMake configure/build integration and diagnostics    |
+| `ms-python.python`             | Python language support                              |
+| `ms-python.autopep8`           | optional ROS 2 Python formatting convenience         |
+| `redhat.vscode-yaml`           | YAML validation                                      |
+| `redhat.vscode-xml`            | XML validation for `package.xml`, URDF, launch XML   |
+| `GitHub.vscode-github-actions` | GitHub Actions schema validation and completion      |
+| `timonwong.shellcheck`         | shell-script diagnostics                             |
+| `ms-iot.vscode-ros`            | optional ROS workspace integration                   |
+| `emeraldwalk.RunOnSave`        | optional external command execution after save       |
 
 ## Base user settings
 
@@ -82,12 +82,12 @@ Language-specific formatting should be enabled at workspace level so ROS 1 and R
 
 Repository `.editorconfig` settings should be treated as the first source of truth for whitespace, indentation, line endings, and final-newline behavior.
 
-# ROS 2 Jazzy workspace
+# ROS 2 Lyrical workspace
 
 The primary ROS 2 target is:
 
-- Ubuntu 24.04 Noble
-- ROS 2 Jazzy
+- Ubuntu 26.04 Resolute
+- ROS 2 Lyrical
 
 For ROS 2 C/C++ formatting, use the ROS-provided `ament_uncrustify`.
 
@@ -105,15 +105,12 @@ with:
 
 ```json
 {
-  "ros.distro": "jazzy",
+  "ros.distro": "lyrical",
   "[python]": {
     "editor.defaultFormatter": "ms-python.autopep8",
     "editor.formatOnSave": true
   },
-  "autopep8.args": [
-    "--max-line-length",
-    "99"
-  ]
+  "autopep8.args": ["--max-line-length", "99"]
 }
 ```
 
@@ -124,14 +121,14 @@ This keeps Python auto-formatting local to ROS 2 workspaces instead of applying 
 Check formatting:
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/lyrical/setup.bash
 ament_uncrustify <file>
 ```
 
 Apply formatting:
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/lyrical/setup.bash
 ament_uncrustify --reformat <file>
 ```
 
@@ -157,7 +154,7 @@ with:
       "command": "bash",
       "args": [
         "-lc",
-        "source /opt/ros/jazzy/setup.bash && ament_uncrustify --reformat \"${file}\""
+        "source /opt/ros/lyrical/setup.bash && ament_uncrustify --reformat \"${file}\""
       ],
       "problemMatcher": []
     },
@@ -167,7 +164,7 @@ with:
       "command": "bash",
       "args": [
         "-lc",
-        "source /opt/ros/jazzy/setup.bash && ament_uncrustify \"${file}\""
+        "source /opt/ros/lyrical/setup.bash && ament_uncrustify \"${file}\""
       ],
       "problemMatcher": []
     },
@@ -177,7 +174,7 @@ with:
       "command": "bash",
       "args": [
         "-lc",
-        "source /opt/ros/jazzy/setup.bash && ament_flake8 \"${file}\""
+        "source /opt/ros/lyrical/setup.bash && ament_flake8 \"${file}\""
       ],
       "problemMatcher": []
     },
@@ -187,7 +184,7 @@ with:
       "command": "bash",
       "args": [
         "-lc",
-        "source /opt/ros/jazzy/setup.bash && ament_pep257 \"${file}\""
+        "source /opt/ros/lyrical/setup.bash && ament_pep257 \"${file}\""
       ],
       "problemMatcher": []
     },
@@ -232,7 +229,7 @@ Then add to the ROS 2 workspace `.vscode/settings.json`:
     "commands": [
       {
         "match": "\\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$",
-        "cmd": "bash -lc 'source /opt/ros/jazzy/setup.bash && ament_uncrustify --reformat \"${file}\"'"
+        "cmd": "bash -lc 'source /opt/ros/lyrical/setup.bash && ament_uncrustify --reformat \"${file}\"'"
       }
     ]
   }
@@ -250,7 +247,7 @@ Manual task-based formatting is preferred during the initial rollout because it 
 Validate Python with the ROS tools:
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/lyrical/setup.bash
 ament_flake8 path/to/python
 ament_pep257 path/to/python
 ```
@@ -467,7 +464,7 @@ with:
 ```text
 ament_uncrustify
 ROS2 Python format-on-save
-Jazzy environment setup
+Lyrical environment setup
 ```
 
 ## ROS 1 recommended behavior
@@ -505,7 +502,7 @@ pre-commit run   --config ~/.config/aperion/dot-github/ci/precommit/baseline.yam
 For ROS 2:
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/lyrical/setup.bash
 colcon build
 colcon test
 colcon test-result --verbose
