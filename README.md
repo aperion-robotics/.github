@@ -10,6 +10,26 @@ The goal is to keep CI, repository rules, security settings and developer guidel
 
 ---
 
+## Developer Documentation
+
+The Aperion Robotics Developer Handbook is available in our
+[GitHub Wiki](https://github.com/aperion-robotics/.github/wiki).
+
+It includes:
+
+- CI policies and repository standards
+- VS Code and pre-commit setup
+- ROS1 Melodic / Noetic development
+- ROS2 Lyrical development
+- Pull request and code review workflow
+- Contributing to central CI
+- CI testing and validation procedures
+
+Documentation changes should be submitted through pull requests
+to the central `.github` repository.
+
+---
+
 ## 1. CI architecture
 
 Aperion uses three layers to control CI and repository governance:
