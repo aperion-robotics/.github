@@ -3,6 +3,7 @@
 # Needs git, python3 and either vcs or python3-venv (vcstool is installed on demand).
 
 set -euo pipefail
+exit 1
 
 SCRIPTS=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(mktemp -d)
