@@ -72,8 +72,9 @@ Central GitHub Actions workflows live under:
 
 Third-party Actions are pinned to immutable commit SHAs. Required container images are digest-pinned where applicable.
 
-Every workflow that reads files from this repository (scripts, allowlists, configurations) checks it out at
-`APERION_CI_REF`, which must equal the ref the organization rulesets require. See [section 12](#12-changing-central-ci).
+ROS workflows check out central scripts and allowlists at `${{ github.workflow_sha }}`,
+so the configuration matches the required-workflow revision selected by the ruleset.
+See [section 12](#12-changing-central-ci).
 
 ---
 
@@ -800,17 +801,121 @@ Direct commits to `main` are not allowed.
 
 ### Testing central CI changes
 
-Rulesets run a required workflow from the ref they point at. Consequences:
+Every new feature, bug fix or change to a required central workflow must be tested **before**
+merging into `main`. A green check on the `.github` pull request alone is not enough:
+organization-required workflows normally execute from the ref configured in their
+rulesets, which may differ from the proposed branch.
 
-- On pull requests to this repository, the required `Aperion Baseline` and `Pull Request Title` checks run the
-  workflows of `main`, not the ones under review. `ci-self-test.yml` is not required by an organization ruleset
-  and runs the version under review; make it a required status check of this repository.
-- The ROS workflows skip this repository. Validate them on pilot repositories:
-  1. set `ci_pilot = true` on a few representative repositories (for example a Melodic package with private
-     source dependencies, a Noetic package and a ROS 2 package)
-  2. point the `ci-pilot-*` rulesets at the branch of the central pull request
-  3. open a pull request on each pilot repository and link the runs from the central pull request
-  4. merge the central pull request only after the pilot runs pass
+#### Pilot repositories and isolation
+
+Use **private, disposable pilot repositories** rather than making experimental changes
+to production repositories. Reference pilot repositories currently include:
+
+| Pilot repository | Scope |
+| --- | --- |
+| `ci-pilot-ros1-melodic-dep` + `ci-pilot-ros1-melodic-app` | Melodic, private source dependency, catkin and lint |
+| `ci-pilot-ros1-noetic-dep` + `ci-pilot-ros1-noetic-app` | Noetic, private source dependency, catkin and lint |
+| `ci-pilot-ros2-lyrical-dep` + `ci-pilot-ros2-lyrical-app` | Lyrical, private source dependency, colcon and ament lint |
+| `ci-pilot-codeql` | CodeQL language detection, analysis and security merge gate |
+
+In pilot *application* repositories, keep `ci_managed=true`, `codeql_required=true`,
+and enable only the applicable ROS distribution property. Use `ci_pilot=true`
+where the matching pilot rulesets are configured. Keep pilot required-workflow
+rulesets **scoped to pilot repositories only** and pointing at the branch (or
+release-candidate ref) of the central CI pull request. Do not repoint the production
+rulesets to an unmerged branch. Verify the **effective rulesets** in each pilot
+repository before interpreting a run; multiple rulesets are additive.
+
+When testing CodeQL separately, use `ci-pilot-codeql` with `ci_managed=false`,
+`codeql_required=true`; the CodeQL scanner itself must also be configured and
+run, as the ruleset only enforces **published code-scanning results**.
+
+#### Step-by-step validation procedure
+
+1. **Propose the change:** open a pull request in `aperion-robotics/.github`;
+   record the central branch/SHA and affected workflows, scripts or policies.
+   Run and inspect `ci-self-test.yml` (actionlint, shellcheck, script tests and
+   other central checks). Ensure the central self-test is enforced as a required
+   check before treating this gate as mandatory.
+2. **Target pilots safely:** keep their existing PR branches (or create new ones)
+   and configure the pilot-only rulesets to reference the central PR branch.
+   The ROS workflows check out central scripts and allowlists using
+   `${{ github.workflow_sha }}`, so the evaluated workflow and its configuration
+   should come from the same central commit.
+3. **Run a positive test:** open/update each relevant pilot PR; verify
+   checkout, `rosdep`, source dependency import where applicable, build,
+   unit tests and linters all pass. Check the *test report*, not only the
+   green overall check. Record the run URLs and commit SHAs.
+4. **Test without source dependencies:** remove `.ci/<workflow>.repos` on a
+   separate pilot PR and verify that GitHub App token creation and dependency
+   import are skipped while the build and tests still pass. Do not remove
+   manifests from the production branch.
+5. **Run negative tests:** on separate, intentionally unmergeable PRs,
+   introduce a failing GTest (or the relevant lint/CI violation); verify
+   the required ROS workflow fails **and merge is blocked**. Where relevant,
+   test a disallowed source dependency and confirm allowlist enforcement.
+   Close negative-test PRs **without merging** after saving the evidence.
+6. **Validate CodeQL separately:** ensure supported source languages are
+   present on the pilot's **default branch**, CodeQL setup is enabled and
+   completed for the intended languages, and analysis results are published
+   for the PR. Verify both a clean PR and a controlled alert at or above
+   the ruleset threshold. A configured scanner with `languages=[]` is
+   **not** evidence of successful CodeQL analysis. Follow normal PR review
+   protections during initial repository bootstrap.
+7. **Review merge protection:** confirm branch protection, required workflow
+   results, review approvals and CodeQL code-scanning merge protection apply
+   as intended. Never bypass or loosen organization-wide rules just to
+   make a pilot pass.
+8. **Approve rollout:** attach a validation summary and links to the central
+   PR; merge only after the relevant checks, review and pilot evidence are
+   complete. Follow the phased rollout in [section 11](#11-ci-rollout-policy)
+   and monitor the first production PRs.
+
+#### Required evidence for each central CI pull request
+
+In the central PR description or a linked validation document, capture:
+
+- central CI branch/SHA, affected workflows, change summary and reviewer
+- pilot repository, PR link, Actions run URL, result and workflow ref/SHA
+- positive build/test/lint results and whether private dependencies imported
+- standalone/no-manifest behavior and skipped authentication steps, where applicable
+- negative test demonstrating **failure and merge blocking**, plus PR closure
+- CodeQL languages **actually analyzed** and rule enforcement, when relevant
+- known limitations, exemptions, follow-up issues and rollout/rollback plan
+
+A practical validation matrix (mark `N/A` only with a reason):
+
+| Scenario | Expected result |
+| --- | --- |
+| Melodic + private source dependency | PASS |
+| Noetic + private source dependency | PASS |
+| Lyrical + private source dependency | PASS |
+| Lyrical without `.repos` | PASS; GitHub App import steps skipped |
+| Deliberately failing GTest | FAIL; merge blocked |
+| Disallowed private dependency (if changed) | FAIL before build |
+| CodeQL clean PR (if security configuration changed) | Analysis complete; policy satisfied |
+| CodeQL alert above policy threshold (if relevant) | Merge blocked |
+| Central `ci-self-test.yml` | PASS; required gate verified |
+
+Useful GitHub CLI commands:
+
+```bash
+# Existing ROS pilot checks:
+for distro in ros1-melodic ros1-noetic ros2-lyrical; do
+  gh pr checks 1 --repo "aperion-robotics/ci-pilot-${distro}-app"
+done
+
+# Central CI PR:
+gh pr checks 3 --repo aperion-robotics/.github
+
+# Inspect which central workflow revision a pilot run used:
+gh run view <run-id> --repo aperion-robotics/<pilot-app-repo> --log
+```
+
+**Security note:** The approved source dependency repositories belong in
+`ci/source-deps/allowed-repositories.txt` and are fetched with a short-lived,
+least-privilege GitHub App token. Never paste private keys or tokens into pilot
+sources, logs, PR descriptions or the public `.github` repository.
 
 ### Versioning
 
