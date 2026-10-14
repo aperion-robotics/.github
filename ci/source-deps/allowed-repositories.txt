@@ -8,3 +8,6 @@
 #
 # One repository name per line, without the organization prefix.
 # Add entries through a reviewed pull request to aperion-robotics/.github.
+ci-pilot-ros1-melodic-dep
+ci-pilot-ros1-noetic-dep
+ci-pilot-ros2-lyrical-dep
