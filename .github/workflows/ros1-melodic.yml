@@ -118,14 +118,14 @@ jobs:
         run: |
           .aperion-ci/ci/scripts/source-deps.sh import \
             .ci/ros1-melodic.repos \
-            .aperion-upstream
+            aperion-upstream
 
       - name: Configure industrial_ci source workspaces
         if: steps.source-deps.outputs.present == 'true'
         shell: bash
         run: |
-          echo "UPSTREAM_WORKSPACE=.aperion-upstream" >> "$GITHUB_ENV"
-          echo "TARGET_WORKSPACE=. -.aperion-upstream" >> "$GITHUB_ENV"
+          echo "UPSTREAM_WORKSPACE=aperion-upstream" >> "$GITHUB_ENV"
+          echo "TARGET_WORKSPACE=. -aperion-upstream" >> "$GITHUB_ENV"
 
       # Caches are scoped to the pull request, so later pushes and re-runs
       # of the same pull request reuse the compiler cache.
