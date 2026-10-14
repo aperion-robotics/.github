@@ -1,0 +1,38 @@
+[
+  [
+    "index",
+    "Overview"
+  ],
+  [
+    "ci-policy",
+    "CI Policy"
+  ],
+  [
+    "workstation",
+    "Workstation & Pre-commit"
+  ],
+  [
+    "vscode",
+    "VS Code & EditorConfig"
+  ],
+  [
+    "ros1",
+    "ROS1 Melodic / Noetic"
+  ],
+  [
+    "ros2",
+    "ROS2 Lyrical"
+  ],
+  [
+    "pull-requests",
+    "Pull Request Workflow"
+  ],
+  [
+    "contributing-central-ci",
+    "Contributing to Central CI"
+  ],
+  [
+    "ci-testing",
+    "CI Testing & Validation"
+  ]
+]

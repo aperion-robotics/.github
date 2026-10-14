@@ -1,0 +1,109 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CI Testing &amp; Validation | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="" href="ros2.html">ROS2 Lyrical</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="active" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>CI Testing and Validation Playbook</h1>
+<p>Use disposable <strong>private</strong> pilot repositories to validate features on the PR branch before the central CI PR is merged.</p>
+<h2>Pilot matrix</h2>
+<table>
+<thead>
+<tr>
+  <th>Pilot</th>
+  <th>Expected result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>ci-pilot-ros1-melodic-app</code> + private <code>-dep</code></td>
+  <td>Build, unit tests and lint PASS</td>
+</tr>
+<tr>
+  <td><code>ci-pilot-ros1-noetic-app</code> + private <code>-dep</code></td>
+  <td>Build, unit tests and lint PASS</td>
+</tr>
+<tr>
+  <td><code>ci-pilot-ros2-lyrical-app</code> + private <code>-dep</code></td>
+  <td>Build, unit tests and lint PASS</td>
+</tr>
+<tr>
+  <td>ROS2 Lyrical without <code>.ci/ros2-lyrical.repos</code></td>
+  <td>PASS; App token/import steps SKIPPED</td>
+</tr>
+<tr>
+  <td>Deliberately failing GTest on separate PR</td>
+  <td>Required CI FAIL; merge BLOCKED</td>
+</tr>
+<tr>
+  <td>Dependency repo not in <code>ci/source-deps/allowed-repositories.txt</code></td>
+  <td>FAIL before build (when allowlist changed)</td>
+</tr>
+<tr>
+  <td>CodeQL test repository</td>
+  <td>Supported languages detected, analyses published; thresholds enforced (if configuration changed)</td>
+</tr>
+<tr>
+  <td>Central <code>ci-self-test.yml</code></td>
+  <td>PASS and REQUIRED</td>
+</tr>
+</tbody>
+</table>
+<h2>Pilot rulesets</h2>
+<p>Production rulesets must point to the approved central ref; pilot-only rulesets target their own pilot app repositories and reference the central feature branch. Confirm effective rulesets in <strong>Settings → Rules → Rulesets</strong>. All rulesets are additive.</p>
+<h2>Running the tests</h2>
+<pre><code class="language-bash"># Existing pilot PR checks (use the actual PR number if not #1)
+for distro in ros1-melodic ros1-noetic ros2-lyrical; do
+  gh pr checks 1 --repo &quot;aperion-robotics/ci-pilot-${distro}-app&quot;
+done
+
+# Central PR check (replace number when testing a future PR)
+gh pr checks 3 --repo aperion-robotics/.github
+
+# Inspect failure logs
+gh run view &lt;run-id&gt; --repo aperion-robotics/&lt;pilot-repository&gt; --log-failed
+</code></pre>
+<h2>Negative testing</h2>
+<p>Introduce a deliberately failing unit test only on a <strong>separate disposable PR</strong>, confirm the required workflow fails and that GitHub blocks merge. Close the PR without merging. For CodeQL test cases, use controlled non-production samples and ensure the alert meets the actual configured merge-protection threshold.</p>
+<h2>CodeQL verification</h2>
+<pre><code class="language-bash">gh api repos/aperion-robotics/ci-pilot-codeql/languages
+gh api repos/aperion-robotics/ci-pilot-codeql/code-scanning/analyses \
+  --jq '[.[] | {category, tool: .tool.name, created_at}]'
+</code></pre>
+<p>A configured CodeQL scanner with <code>languages=[]</code> is not proof of successful analysis. Verify actual published C/C++ and Python analyses.</p>
+<h2>Common failures and remedies</h2>
+<table>
+<thead>
+<tr>
+  <th>Symptom</th>
+  <th>Check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>GitHub App <code>Invalid keyData</code></td>
+  <td>Org Actions secret contains the complete valid PEM private key; do not disclose it</td>
+</tr>
+<tr>
+  <td><code>Cannot locate rosdep definition for [private_dep]</code></td>
+  <td>Ensure the private package appears in an upstream workspace and has been built/installed</td>
+</tr>
+<tr>
+  <td><code>undefined reference to main</code> in a pilot GTest</td>
+  <td>Link <code>gtest_main</code> or provide an explicit <code>main()</code></td>
+</tr>
+<tr>
+  <td><code>catkin_lint</code> missing <code>CATKIN_DEPENDS roscpp</code></td>
+  <td>Declare ROS runtime dependencies in <code>catkin_package()</code></td>
+</tr>
+<tr>
+  <td>ROS2 <code>ament_target_dependencies</code> missing</td>
+  <td>On Lyrical use exported modern CMake targets / <code>target_link_libraries()</code></td>
+</tr>
+<tr>
+  <td><code>target_link_libraries</code> plain/keyword conflict</td>
+  <td>Use a consistent signature for each CMake target</td>
+</tr>
+<tr>
+  <td>CodeQL <code>languages=[]</code></td>
+  <td>Check supported sources exist on the <strong>default branch</strong> and that analyses were published</td>
+</tr>
+</tbody>
+</table>
+<h2>Recording evidence</h2>
+<p>Every central CI PR should link the exact pilot PR/run URLs, workflow ref/SHA, expected result, observed result, reviewer approval and rollback/rollout plan.</p>
+</article><footer>Generated from docs/handbook Markdown.</footer></main></div></body></html>

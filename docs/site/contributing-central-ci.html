@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Contributing to Central CI | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="" href="ros2.html">ROS2 Lyrical</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="active" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>Contributing to the Central CI Repository</h1>
+<p>Central CI lives at <a href="https://github.com/aperion-robotics/.github"><code>aperion-robotics/.github</code></a>. Changes to workflows, common scripts, allowlists and policies affect many repositories; treat them as production engineering changes.</p>
+<h2>1. Propose a change</h2>
+<ul>
+<li>Open a branch such as <code>ci/ros2-clang-tidy</code> and create a PR to <code>main</code>.</li>
+<li>Describe affected workflows and why the new check is required.</li>
+<li>Preserve least-privilege <code>permissions:</code> and pinned third-party Action SHAs.</li>
+<li>Do not introduce credentials or private robot information into this public repository.</li>
+<li>Update scripts, tests, README and this Handbook alongside behavior changes.</li>
+</ul>
+<h2>2. Validate centrally</h2>
+<ul>
+<li>Run <code>Central CI Self-Test</code> and inspect actionlint/shellcheck/script-test results.</li>
+<li>Ensure the central self-test is a <strong>required</strong> merge check.</li>
+<li>Do not interpret ROS workflows skipped inside <code>.github</code> as ROS validation; they must be tested in pilot application repositories.</li>
+</ul>
+<h2>3. Configure isolated pilots</h2>
+<ul>
+<li>Production rulesets remain on <code>refs/heads/main</code> (or the approved release ref).</li>
+<li>Only <strong>pilot</strong> rulesets point to the feature branch under test.</li>
+<li>Scope pilot rulesets to pilot repositories to avoid duplicate required checks from overlapping rulesets.</li>
+<li>Pilot repositories retain the appropriate <code>ci_managed</code>, <code>ci_pilot</code>, ROS distribution and <code>codeql_required</code> properties.</li>
+<li>ROS workflows use <code>${{ github.workflow_sha }}</code> so the tested workflow and checked-out central configuration are aligned.</li>
+</ul>
+<h2>4. Evidence before review approval</h2>
+<ul>
+<li>Positive build, tests and linting on each affected ROS distro.</li>
+<li>Private dependency import where relevant, and no-manifest behavior where relevant.</li>
+<li>At least one <strong>negative test</strong> verifying that a real failure blocks merging when changing a merge gate.</li>
+<li>If security settings change, actual CodeQL analysis publication and enforcement tests.</li>
+<li>Record central commit SHA, pilot PR and run URLs, expected outcomes and any exceptions.</li>
+</ul>
+<h2>5. Merge and rollout</h2>
+<p>After approval and green required checks, merge the central PR, restore the pilot refs to the approved production ref, run a post-merge smoke test and roll out gradually to real ARISTOS/BlueBOT repositories. Do not silently weaken organization rules to unblock a pilot.</p>
+<p>See <a href="ci-testing.html">CI Testing and Validation</a> for test matrix and commands.</p>
+</article><footer>Generated from docs/handbook Markdown.</footer></main></div></body></html>

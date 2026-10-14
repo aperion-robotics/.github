@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CI Policy | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="active" href="ci-policy.html">CI Policy</a><a class="" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="" href="ros2.html">ROS2 Lyrical</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>CI Policy and Merge Gates</h1>
+<p>Shared configuration lives in <a href="https://github.com/aperion-robotics/.github">aperion-robotics/.github</a>. <strong>Custom properties</strong> select organization rulesets; <strong>rulesets</strong> select required checks. Workflows do not need copying into consumer repositories.</p>
+<table>
+<thead>
+<tr>
+  <th>Gate</th>
+  <th>Coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Aperion Baseline</td>
+  <td>YAML/JSON/TOML/XML, whitespace/newlines, secrets, large/forbidden files, conflict markers</td>
+</tr>
+<tr>
+  <td>ROS1 Melodic and Noetic</td>
+  <td><code>rosdep</code>, <code>catkin_tools</code>, tests, <code>catkin_lint</code>, <code>clang-tidy</code>; Noetic Python error checks</td>
+</tr>
+<tr>
+  <td>ROS2 Lyrical</td>
+  <td><code>rosdep</code>, <code>colcon</code>, package unit tests and <code>ament</code> lint</td>
+</tr>
+<tr>
+  <td>Dependency Review</td>
+  <td>Introduction of dependencies with known vulnerabilities (configured severity threshold)</td>
+</tr>
+<tr>
+  <td>CodeQL</td>
+  <td>Code-scanning results enforced in repositories with <code>codeql_required=true</code>, <strong>only when actual scanning is configured</strong></td>
+</tr>
+<tr>
+  <td>PR governance</td>
+  <td>Conventional Commit PR title, approvals, resolved comments and required status checks</td>
+</tr>
+</tbody>
+</table>
+<h2>Repository properties</h2>
+<ul>
+<li><code>ci_managed=true</code> enables the shared baseline and dependency checks.</li>
+<li><code>ros1_melodic</code>, <code>ros1_noetic</code>, <code>ros2_lyrical</code> select distribution-specific checks independently.</li>
+<li><code>codeql_required=true</code> selects the CodeQL results ruleset; it does not execute the scanner itself.</li>
+<li><code>ci_pilot=true</code> identifies the dedicated CI validation repositories when pilot rulesets are configured.</li>
+</ul>
+<p>ROS1 and ROS2 properties may both be enabled during migration. Pilot rulesets and production rulesets must <strong>not overlap</strong> in a way that runs two revisions of the same required workflow. Defaults are protected: changes go via PR and review.</p>
+<h2>Baseline is not a ROS formatter</h2>
+<p>The shared pre-commit baseline is intended to be fast. It is not a replacement for <code>roslint</code>, <code>ament_uncrustify</code>, <code>ament_flake8</code>, <code>catkin</code>, or <code>colcon</code>.</p>
+<p>See the <a href="https://github.com/aperion-robotics/.github/blob/main/README.md">central README</a> for the current rule values and thresholds.</p>
+</article><footer>Generated from docs/handbook Markdown.</footer></main></div></body></html>

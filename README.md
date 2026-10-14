@@ -928,6 +928,16 @@ the branch under test.
 
 ---
 
+## Developer Handbook
+
+English developer onboarding, ROS1/ROS2 workflows, VS Code, pre-commit and central CI contribution/testing procedures:
+
+- [Developer Handbook](docs/handbook/README.md)
+- [Browsable HTML guide](docs/site/index.html) (open locally for the complete styled view)
+- [Wiki publication sources](docs/wiki-export/Home.md) (published separately after review)
+
+Documentation sources are Markdown in `docs/handbook/`. Generate exports using `python3 scripts/docs/build_docs.py` (requires `mistune`) and validate with `python3 scripts/docs/validate_docs.py`. Wiki publication is an explicit, reviewed action: `python3 scripts/docs/publish_wiki.py --publish`.
+
 ## 13. Developer documentation
 
 Documentation lives under:
