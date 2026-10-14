@@ -1,10 +1,10 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROS2 Lyrical | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="active" href="ros2.html">ROS2 Lyrical</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>ROS2 Development — Lyrical</h1>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROS2 Lyrical | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="active" href="ros2.html">ROS2 Lyrical</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>ROS2 Development - Lyrical</h1>
 <p>Production migration target: ROS2 <strong>Lyrical</strong>, Ubuntu <strong>26.04 Resolute</strong>. Use an environment where the ROS2 tools are installed (host or appropriate development container).</p>
 <pre><code class="language-bash">source /opt/ros/lyrical/setup.bash
 </code></pre>
 <h2>C/C++ formatting</h2>
 <pre><code class="language-bash">ament_uncrustify src include
-# Deliberate reformat — inspect changes afterward
+# Deliberate reformat - inspect changes afterward
 ament_uncrustify --reformat src include
 git diff
 </code></pre>

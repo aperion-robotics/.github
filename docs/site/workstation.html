@@ -28,7 +28,7 @@ test -x .git/hooks/pre-commit &amp;&amp; echo 'Aperion pre-commit hook installed
 <pre><code class="language-bash"># Staged changes
 pre-commit run --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml
 
-# Whole repository — occasional adoption/review check
+# Whole repository - occasional adoption/review check
 pre-commit run --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files --show-diff-on-failure
 
 # Changes against default branch
