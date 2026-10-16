@@ -8,6 +8,7 @@ English-language engineering guidance for Aperion Robotics. Markdown is canonica
 - [VS Code & EditorConfig](vscode.md)
 - [ROS1 Melodic / Noetic](ros1.md)
 - [ROS2 Lyrical](ros2.md)
+- [Repository CI Files](repository-ci-files.md)
 - [Pull Request Workflow](pull-requests.md)
 - [Contributing to Central CI](contributing-central-ci.md)
 - [CI Testing & Validation](ci-testing.md)

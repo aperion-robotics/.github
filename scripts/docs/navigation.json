@@ -24,6 +24,10 @@
     "ROS2 Lyrical"
   ],
   [
+    "repository-ci-files",
+    "Repository CI Files"
+  ],
+  [
     "pull-requests",
     "Pull Request Workflow"
   ],

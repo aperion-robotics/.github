@@ -10,6 +10,9 @@ A practical onboarding and CI handbook for the ARISTOS, BlueBOT and shared engin
 2. [Prepare the workstation](workstation.md), including host-side pre-commit.
 3. [Configure VS Code](vscode.md).
 4. Use the [ROS1](ros1.md) or [ROS2](ros2.md) instructions.
-5. Follow the [PR checklist](pull-requests.md).
+5. Add [repository CI files](repository-ci-files.md) if the repository has source dependencies or needs CI options.
+6. Follow the [PR checklist](pull-requests.md).
+
+Reference repositories `ci-pilot-*` to study and understand most of the workflow requirements.
 
 Central CI is authoritative; local checks shorten the feedback loop.

@@ -12,8 +12,9 @@ Central CI lives at [`aperion-robotics/.github`](https://github.com/aperion-robo
 
 ## 2. Validate centrally
 
-- Run `Central CI Self-Test` and inspect actionlint/shellcheck/script-test results.
-- Ensure the central self-test is a **required** merge check.
+- Run the `Central CI Self-Test` workflow and inspect the actionlint, zizmor, shellcheck, script-test and documentation results.
+- Ensure its status check, `central CI definition self-test`, is a **required** merge check.
+- After editing `docs/handbook/`, run `python3 scripts/docs/build_docs.py` (`mistune==3.3.4`) and commit the regenerated `docs/site/` and `docs/wiki-export/`. The self-test fails when they appear stale.
 - Do not interpret ROS workflows skipped inside `.github` as ROS validation; they must be tested in pilot application repositories.
 
 ## 3. Configure isolated pilots
@@ -22,7 +23,7 @@ Central CI lives at [`aperion-robotics/.github`](https://github.com/aperion-robo
 - Only **pilot** rulesets point to the feature branch under test.
 - Scope pilot rulesets to pilot repositories to avoid duplicate required checks from overlapping rulesets.
 - Pilot repositories retain the appropriate `ci_managed`, `ci_pilot`, ROS distribution and `codeql_required` properties.
-- ROS workflows use `${{ github.workflow_sha }}` so the tested workflow and checked-out central configuration are aligned.
+- All central workflows check out their configuration at `${{ github.workflow_sha }}`, so the tested workflow and the central configuration come from the same commit. Never hard-code `main` as a checkout ref.
 
 ## 4. Evidence before review approval
 
@@ -34,6 +35,6 @@ Central CI lives at [`aperion-robotics/.github`](https://github.com/aperion-robo
 
 ## 5. Merge and rollout
 
-After approval and green required checks, merge the central PR, restore the pilot refs to the approved production ref, run a post-merge smoke test and roll out gradually to real ARISTOS/BlueBOT repositories. Do not silently weaken organization rules to unblock a pilot.
+After approval and green required checks, merge the central PR, publish the wiki (`python3 scripts/docs/publish_wiki.py --publish`), restore the pilot refs to the approved production ref, run a post-merge smoke test and roll out gradually to real ARISTOS/BlueBOT repositories. Do not silently weaken organization rules to unblock a pilot.
 
 See [CI Testing and Validation](ci-testing) for test matrix and commands.

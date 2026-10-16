@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Workstation &amp; Pre-commit | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="active" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="" href="ros2.html">ROS2 Lyrical</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>Workstation and Pre-commit</h1>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Workstation &amp; Pre-commit | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="active" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="" href="ros2.html">ROS2 Lyrical</a><a class="" href="repository-ci-files.html">Repository CI Files</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>Workstation and Pre-commit</h1>
 <p><strong>Install VS Code, Git and pre-commit on the Ubuntu host</strong> for both ROS1 and ROS2. Build and test ROS1 code inside the matching container. The approved <code>pre-commit==4.6.2</code> needs Python 3.10+ and Git 2.31+, so it is not suitable for stock Melodic/Noetic containers.</p>
 <h2>1. Install host tools</h2>
 <pre><code class="language-bash">sudo apt update
@@ -28,12 +28,17 @@ test -x .git/hooks/pre-commit &amp;&amp; echo 'Aperion pre-commit hook installed
 <pre><code class="language-bash"># Staged changes
 pre-commit run --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml
 
-# Whole repository - occasional adoption/review check
+# Whole repository — occasional adoption/review check
 pre-commit run --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files --show-diff-on-failure
 
 # Changes against default branch
 git fetch origin
 pre-commit run --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --from-ref origin/main --to-ref HEAD --show-diff-on-failure
+</code></pre>
+<p>Advisory hooks run one at a time (blocking in CI for <code>quality_profile=production</code>):</p>
+<pre><code class="language-bash">pre-commit run typos --hook-stage manual --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files
+pre-commit run actionlint --hook-stage manual --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files
+pre-commit run zizmor --hook-stage manual --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files
 </code></pre>
 <p>Replace <code>origin/main</code> if needed. If a hook edits files, inspect <code>git diff</code>, stage the result again and retry commit. Avoid <code>sudo pip install</code>, <code>git commit --no-verify</code> and <code>pre-commit autoupdate</code> without central review.</p>
 <p><strong>Further reading:</strong> <a href="https://github.com/aperion-robotics/.github/blob/main/docs/developer/pre-commit.md">pre-commit developer reference</a>.</p>

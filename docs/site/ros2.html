@@ -1,10 +1,10 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROS2 Lyrical | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="active" href="ros2.html">ROS2 Lyrical</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>ROS2 Development - Lyrical</h1>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROS2 Lyrical | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="active" href="ros2.html">ROS2 Lyrical</a><a class="" href="repository-ci-files.html">Repository CI Files</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>ROS2 Development — Lyrical</h1>
 <p>Production migration target: ROS2 <strong>Lyrical</strong>, Ubuntu <strong>26.04 Resolute</strong>. Use an environment where the ROS2 tools are installed (host or appropriate development container).</p>
 <pre><code class="language-bash">source /opt/ros/lyrical/setup.bash
 </code></pre>
 <h2>C/C++ formatting</h2>
 <pre><code class="language-bash">ament_uncrustify src include
-# Deliberate reformat - inspect changes afterward
+# Deliberate reformat — inspect changes afterward
 ament_uncrustify --reformat src include
 git diff
 </code></pre>
@@ -19,5 +19,15 @@ colcon test
 colcon test-result --verbose
 </code></pre>
 <p>ROS2 packages should declare appropriate <code>ament_lint_auto</code> / <code>ament_lint_common</code> test dependencies. The package test suite and central CI remain authoritative even if the editor format-on-save succeeds.</p>
-<p>For proprietary repositories, follow approved company licensing policy. Do not insert an open-source license header solely to make a linter pass.</p>
+<p>For proprietary repositories, follow approved company licensing policy. Do not insert an open-source license header solely to make a linter pass. Instead, exclude <code>ament_copyright</code> (it only accepts recognized license headers) and keep a plain copyright line, which <code>ament_cpplint</code> requires:</p>
+<pre><code class="language-cmake">if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
+  ament_lint_auto_find_test_dependencies()
+endif()
+</code></pre>
+<pre><code class="language-cpp">// Copyright (c) 2026 Aperion Robotics S.A.
+</code></pre>
+<p><code>ament_python</code> packages omit <code>test/test_copyright.py</code>.</p>
+<p>Source dependencies and CI options are set in <code>.ci/ros2-lyrical.repos</code> / <code>.ci/ros2-lyrical.env</code> (<a href="repository-ci-files.html">repository CI files</a>).</p>
 </article><footer>Generated from docs/handbook Markdown.</footer></main></div></body></html>
