@@ -22,11 +22,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  # Ref of aperion-robotics/.github that provides the commitlint configuration.
-  # Keep it equal to the ref the rulesets require.
-  APERION_CI_REF: main
-
 jobs:
   title:
     name: pull request title
@@ -44,7 +39,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: aperion-robotics/.github
-          ref: ${{ github.workflow_sha }} # ${{ github.repository == 'aperion-robotics/.github' && github.sha || env.APERION_CI_REF }}
+          ref: ${{ github.workflow_sha }}
           path: .aperion-ci
           sparse-checkout: ci/commitlint
           persist-credentials: false

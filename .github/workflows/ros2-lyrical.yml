@@ -40,11 +40,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  # Ref of aperion-robotics/.github that provides the CI scripts and the
-  # source dependency allowlist. Keep it equal to the ref the rulesets require.
-  APERION_CI_REF: main
-
 jobs:
   build-test:
     name: ROS2 Lyrical / build & test

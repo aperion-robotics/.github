@@ -106,6 +106,26 @@ jobs:
             pre-commit validate-config \
             ci/precommit/baseline.yaml
 
+      # docs/site and docs/wiki-export (published to the wiki) are generated
+      # from docs/handbook; fail when they were not regenerated.
+      - name: Check generated documentation
+        shell: bash
+        env:
+          MISTUNE_VERSION: 3.3.4
+        run: |
+          set -euo pipefail
+
+          python3 -m venv "$RUNNER_TEMP/docs-venv"
+          "$RUNNER_TEMP/docs-venv/bin/pip" install --quiet "mistune==${MISTUNE_VERSION}"
+          "$RUNNER_TEMP/docs-venv/bin/python" scripts/docs/build_docs.py
+          python3 scripts/docs/validate_docs.py
+
+          if [[ -n "$(git status --porcelain -- docs/site docs/wiki-export)" ]]; then
+            git status --short -- docs/site docs/wiki-export
+            echo "::error::Generated documentation is outdated! Run scripts/docs/build_docs.py and commit the result."
+            exit 1
+          fi
+
       - name: Test commitlint configuration
         shell: bash
         run: |
