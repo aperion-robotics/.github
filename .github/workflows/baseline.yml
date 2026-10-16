@@ -40,8 +40,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Consumer repositories use the approved organization configuration
-      # from aperion-robotics/.github@main.
+      # Consumer repositories use the organization configuration from the
+      # aperion-robotics/.github from the commit of this workflow (workflow_sha)
       #
       # When this workflow runs inside aperion-robotics/.github itself,
       # the configuration under review is already present in the working tree.
@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: aperion-robotics/.github
-          ref: main
+          ref: ${{ github.workflow_sha }}
           path: .aperion-ci
           persist-credentials: false
 

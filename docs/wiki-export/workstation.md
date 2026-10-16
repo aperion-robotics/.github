@@ -55,6 +55,14 @@ git fetch origin
 pre-commit run --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --from-ref origin/main --to-ref HEAD --show-diff-on-failure
 ```
 
+Advisory hooks run one at a time (blocking in CI for `quality_profile=production`):
+
+```bash
+pre-commit run typos --hook-stage manual --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files
+pre-commit run actionlint --hook-stage manual --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files
+pre-commit run zizmor --hook-stage manual --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files
+```
+
 Replace `origin/main` if needed. If a hook edits files, inspect `git diff`, stage the result again and retry commit. Avoid `sudo pip install`, `git commit --no-verify` and `pre-commit autoupdate` without central review.
 
 **Further reading:** [pre-commit developer reference](https://github.com/aperion-robotics/.github/blob/main/docs/developer/pre-commit.md).
