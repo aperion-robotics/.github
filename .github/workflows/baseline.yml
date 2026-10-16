@@ -182,7 +182,7 @@ jobs:
       # This tries to avoid deleted secrets being leaked from older commits
       - name: Scan new commits for secrets
         if: ${{ !cancelled() }}
-        uses: trufflesecurity/trufflehog@005b692bdfd0764e5da402887d9ab9196f8023dc # v3.99.1
+        uses: trufflesecurity/trufflehog@e76dff8a7e57d6df0c60ad8cbf5d5cba505a8fc9 # v3.99.2
         with:
           base: ${{ steps.base.outputs.base_sha }}
           head: ${{ github.sha }}
