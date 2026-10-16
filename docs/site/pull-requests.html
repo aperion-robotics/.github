@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pull Request Workflow | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="" href="ros2.html">ROS2 Lyrical</a><a class="" href="repository-ci-files.html">Repository CI Files</a><a class="active" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>Daily Git and Pull Request Workflow</h1>
+<ol>
+<li>Create a feature/fix branch; avoid direct pushes to protected default branches.</li>
+<li>Edit in VS Code, use diagnostics and safe workspace-specific formatting.</li>
+<li>Run the appropriate ROS build/tests locally when possible.</li>
+<li>Stage and commit on host; pre-commit checks staged files.</li>
+<li>Push and create PR; provide problem summary, implementation and verification.</li>
+<li>Resolve CI failures and review comments; secure the required approval.</li>
+<li>Merge only after required workflows and applicable code-scanning rules pass.</li>
+</ol>
+<h2>Conventional Commit PR titles</h2>
+<pre><code class="language-text">feat: add GNSS recovery behavior
+fix: handle RTK timeout
+refactor: simplify motor state handling
+test: cover navigation watchdog
+docs: document development setup
+ci: add ROS2 static analysis
+</code></pre>
+<p>Rules (commitlint): Start with a lowercase type chosen between <code>build</code>, <code>ci</code>, <code>chore</code>, <code>docs</code>, <code>feat</code>, <code>fix</code>, <code>perf</code>, <code>refactor</code>, <code>revert</code>, <code>style</code> and <code>test</code>. You can optionally scope it (e.g. <code>fix(move_base_flex): ...</code>). The subject should not contain a trailing period and be a maximum of 100 characters. Breaking changes as <code>feat!: ...</code> or a <code>BREAKING CHANGE:</code> footer. The title check is blocking on <code>production</code> quality. Each individual commit is linted with the same rules as an advisory check, so keep them in the same format when merging without squash. More info on <a href="https://www.conventionalcommits.org/en/v1.0.0/#specification">Conventional Commits</a>.</p>
+<p>Describe any changes to topics, services, actions, parameters, TF frames and hardware or robot-safety implications. Do not commit keys, passwords, production credentials, customer data or unapproved rosbags.</p>
+<p><strong>Further reading:</strong> <a href="https://github.com/aperion-robotics/.github/blob/main/CONTRIBUTING.md">Contribution guidelines</a>.</p>
+</article><footer>Generated from docs/handbook Markdown.</footer></main></div></body></html>

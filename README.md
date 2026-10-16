@@ -1,76 +1,696 @@
-# Aperion Robotics - GitHub Engineering
+# Aperion Robotics - GitHub CI and Repository Standards
 
-This repository contains organization-wide GitHub configuration, CI workflows, security policy, contribution guidelines, and developer tooling documentation for Aperion Robotics.
+This repository contains the shared GitHub configuration and CI standards used across Aperion Robotics repositories.
 
-This repository is intentionally public so GitHub can use its workflows and default community health files across both public and private organization repositories.
+The goal is to keep CI, repository rules, security settings and developer guidelines consistent across ARISTOS, BlueBOT, shared libraries and infrastructure repositories.
 
-No credentials, private configuration, customer data, robot secrets, or production infrastructure information may be stored here.
+> **Important**
+>
+> This repository is public because some GitHub organization features rely on it. Do not store credentials, private infrastructure configuration, customer data, robot secrets, certificates, VPN material, production tokens or other confidential information here.
 
-## CI architecture
+---
 
-Aperion Robotics uses centralized GitHub Actions workflows combined with organization repository custom properties and organization rulesets.
+## Developer Documentation
 
-The intended model is:
+The Aperion Robotics Developer Handbook is available in our
+[GitHub Wiki](https://github.com/aperion-robotics/.github/wiki).
+
+It includes:
+
+- CI policies and repository standards
+- VS Code and pre-commit setup
+- ROS1 Melodic / Noetic development
+- ROS2 Lyrical development
+- Pull request and code review workflow
+- Contributing to central CI
+- CI testing and validation procedures
+
+Documentation changes should be submitted through pull requests
+to the central `.github` repository.
+
+---
+
+## 1. CI architecture
+
+Aperion uses three layers to control CI and repository governance:
 
 ```text
-Repository
-    |
-    +-- baseline CI
-    |
-    +-- ROS1 Melodic CI      if ros1_melodic = true
-    |
-    +-- ROS1 Noetic CI       if ros1_noetic = true
-    |
-    +-- ROS2 Jazzy CI        if ros2_jazzy = true
-    |
-    +-- dependency review
+Repository custom properties
+            |
+            v
+Organization rulesets
+            |
+            v
+Central workflows in aperion-robotics/.github
+            |
+            v
+Pull request checks / merge gates
 ```
 
-Repositories do not need to duplicate the central workflows. Organization rulesets determine which workflows are required.
+Repositories do **not** need to duplicate the central workflows.
 
-## Central workflows
+Repository custom properties decide which rulesets apply. The rulesets then decide which CI and security checks are required before merge.
 
-| Workflow | Purpose |
-|---|---|
-| `baseline.yml` | Generic repository hygiene checks |
-| `ros1-melodic.yml` | ROS 1 Melodic build, test and static analysis using ROS-Industrial `industrial_ci` |
-| `ros1-noetic.yml` | ROS 1 Noetic build, test and static analysis using ROS-Industrial `industrial_ci` |
-| `ros2-jazzy.yml` | ROS 2 Jazzy build and test using `ros-tooling/action-ros-ci` |
-| `dependency-review.yml` | Prevent introduction of dependencies with known high-severity vulnerabilities |
+Example:
 
-## Repository classification
+```text
+ci_managed       = true
+ros1_noetic      = true
+ros2_lyrical     = false
+codeql_required  = true
+        |
+        v
+Required on PR:
+  - branch / PR governance
+  - Aperion Baseline
+  - ROS1 Noetic CI
+  - Dependency Review
+  - CodeQL
+```
 
-Managed repositories are classified using organization custom properties.
+ROS distribution properties are independent because, during migration, a repository may need both ROS 1 and ROS 2 CI enabled.
 
-Expected properties:
+---
 
-| Property | Type | Example values |
-|---|---|---|
-| `ci_managed` | Boolean | `true`, `false` |
-| `product` | Single select | `aristos`, `bluebot`, `shared`, `infrastructure`, `other` |
-| `quality_profile` | Single select | `production`, `development`, `experimental`, `legacy` |
-| `ros1_melodic` | Boolean | `true`, `false` |
-| `ros1_noetic` | Boolean | `true`, `false` |
-| `ros2_jazzy` | Boolean | `true`, `false` |
-| `security_tier` | Single select | `standard`, `product`, `critical` |
+## 2. Central workflows
 
-ROS distribution properties are independent because a repository may need to be validated against more than one ROS distribution.
+Central GitHub Actions workflows live under:
 
-## ROS 2 standard
+```text
+.github/workflows/
+```
 
-The primary ROS 2 production target is:
+| Workflow                | Purpose                                                                      | Intended target       |
+| ----------------------- | ---------------------------------------------------------------------------- | --------------------- |
+| `baseline.yml`          | Generic repository hygiene                                                   | `ci_managed = true`   |
+| `ros1-melodic.yml`      | ROS 1 Melodic build, test and static analysis                                | `ros1_melodic = true` |
+| `ros1-noetic.yml`       | ROS 1 Noetic build, test and static analysis                                 | `ros1_noetic = true`  |
+| `ros2-lyrical.yml`      | ROS 2 Lyrical build and test                                                 | `ros2_lyrical = true` |
+| `dependency-review.yml` | Blocks introduction of dependencies with known high-severity vulnerabilities | `ci_managed = true`   |
+| `pr-title.yml`          | Pull request title follows Conventional Commits (squash commit message)      | `ci_managed = true`   |
+| `ci-self-test.yml`      | Validates the central CI itself (runs only in this repository)               | this repository       |
 
-- Ubuntu 24.04 Noble
-- ROS 2 Jazzy
+Third-party Actions are pinned to immutable commit SHAs. Required container images are digest-pinned where applicable.
 
-ROS 2 packages should declare the standard ROS lint dependencies:
+ROS workflows check out central scripts and allowlists at `${{ github.workflow_sha }}`,
+so the configuration matches the required-workflow revision selected by the ruleset.
+See [section 12](#12-changing-central-ci).
+
+---
+
+## 3. Organization custom properties
+
+Configured under:
+
+```text
+Organization Settings
+→ Repository
+→ Custom properties
+```
+
+| Property          | Type          | Values                                                    | Purpose                            |
+| ----------------- | ------------- | --------------------------------------------------------- | ---------------------------------- |
+| `ci_managed`      | Boolean       | `true`, `false`                                           | Enables Aperion central CI         |
+| `product`         | Single select | `aristos`, `bluebot`, `shared`, `infrastructure`, `other` | Repository ownership/domain        |
+| `quality_profile` | Single select | `production`, `development`, `experimental`, `legacy`     | Engineering maturity/support level |
+| `ros1_melodic`    | Boolean       | `true`, `false`                                           | Enables ROS 1 Melodic CI           |
+| `ros1_noetic`     | Boolean       | `true`, `false`                                           | Enables ROS 1 Noetic CI            |
+| `ros2_lyrical`    | Boolean       | `true`, `false`                                           | Enables ROS 2 Lyrical CI           |
+| `security_tier`   | Single select | `standard`, `product`, `critical`                         | Security importance                |
+| `codeql_required` | Boolean       | `true`, `false`                                           | Makes CodeQL a required merge gate |
+| `ci_pilot`        | Boolean       | `true`, `false`                                           | Receives central CI changes first  |
+
+Example ARISTOS Noetic production repository:
+
+```text
+ci_managed       = true
+product          = aristos
+quality_profile  = production
+ros1_melodic     = false
+ros1_noetic      = true
+ros2_lyrical     = false
+security_tier    = product
+codeql_required  = true
+```
+
+Example ROS1 → ROS2 migration repository:
+
+```text
+ci_managed       = true
+product          = aristos
+quality_profile  = development
+ros1_noetic      = true
+ros2_lyrical     = true
+security_tier    = product
+codeql_required  = true
+```
+
+Central `.github` repository:
+
+```text
+ci_managed       = true
+product          = infrastructure
+quality_profile  = production
+ros1_melodic     = false
+ros1_noetic      = false
+ros2_lyrical     = false
+security_tier    = critical
+codeql_required  = false
+```
+
+Public upstream forks / mirrors should normally remain `ci_managed = false` unless Aperion intentionally owns and maintains them as product repositories.
+
+---
+
+## 4. Organization rulesets
+
+Rulesets are configured under:
+
+```text
+Organization Settings
+→ Repository
+→ Rulesets
+```
+
+Rulesets are additive, so a repository can be covered by more than one ruleset.
+
+### `protect-default-branch-all-repos`
+
+Applies to the default branch.
+
+Current rules:
+
+- deletion blocked
+- non-fast-forward updates / force pushes blocked
+- pull requests required
+- minimum approving reviews: **1**
+- stale approvals dismissed after new pushes
+- review conversations must be resolved
+- unattributed changes require additional approval
+- allowed merge methods:
+  - merge
+  - squash
+  - rebase
+- GitHub Code Quality severity threshold: `errors`
+- Copilot code review:
+  - draft PR review enabled
+  - review-on-push disabled
+- no bypass actors
+
+CodeQL is intentionally **not** required by this universal ruleset.
+
+### `ci-baseline-managed-repositories`
+
+Target:
+
+```text
+ci_managed = true
+```
+
+Branch target:
+
+```text
+Default branch
+```
+
+Required workflows:
+
+```text
+aperion-robotics/.github
+refs/heads/main
+.github/workflows/baseline.yml
+.github/workflows/pr-title.yml
+```
+
+### `ci-ros1-melodic`
+
+Target:
+
+```text
+ros1_melodic = true
+```
+
+Required workflow:
+
+```text
+.github/workflows/ros1-melodic.yml
+```
+
+### `ci-ros1-noetic`
+
+Target:
+
+```text
+ros1_noetic = true
+```
+
+Required workflow:
+
+```text
+.github/workflows/ros1-noetic.yml
+```
+
+### `ci-ros2-lyrical`
+
+Target:
+
+```text
+ros2_lyrical = true
+```
+
+Required workflow:
+
+```text
+.github/workflows/ros2-lyrical.yml
+```
+
+### `ci-pilot-*`
+
+Target:
+
+```text
+ci_pilot = true
+```
+
+Same required workflows as the rulesets above, but pointing at the branch (or release candidate tag) of a
+central CI change under test. See [section 12](#12-changing-central-ci).
+
+### `security-codeql-required`
+
+Target:
+
+```text
+codeql_required = true
+```
+
+Branch target:
+
+```text
+Default branch
+```
+
+Rule:
+
+```text
+Require code scanning results
+Tool: CodeQL
+Security alerts threshold: critical
+Analysis alerts threshold: errors
+```
+
+### Dependency Review ruleset
+
+Target:
+
+```text
+ci_managed = true
+```
+
+Required workflow:
+
+```text
+.github/workflows/dependency-review.yml
+```
+
+Current Dependency Review policy:
+
+```text
+fail-on-severity: high
+vulnerability-check: true
+license-check: false
+show-openssf-scorecard: true
+```
+
+---
+
+## 5. Security configuration
+
+Canonical organization security configuration:
+
+```text
+Aperion-Baseline-Private
+```
+
+Configured under:
+
+```text
+Organization Settings
+→ Security and quality
+→ Advanced Security
+→ Configurations
+```
+
+### Secret Protection
+
+```text
+Secret Protection                 Enabled
+Secret scanning                   Enabled
+AI-detected secrets               Enabled
+Push protection                   Enabled
+Validity checks                   Disabled
+Generic patterns                  Disabled
+Prevent direct alert dismissals   Disabled
+```
+
+Current push-protection bypass policy:
+
+```text
+Anyone with write access
+```
+
+This should be reviewed periodically and tightened if a narrower security/admin bypass model becomes practical.
+
+### Code Security
+
+```text
+Code Security                     Enabled
+Code scanning default setup       Enabled
+Runner type                       Standard
+Prevent direct alert dismissals   Disabled
+```
+
+### Dependency scanning
+
+```text
+Dependency graph                  Enabled
+Automatic dependency submission   Not set
+Dependabot alerts                 Enabled
+Dependabot security updates       Enabled
+Prevent direct alert dismissals   Disabled
+```
+
+### Vulnerability reporting
+
+```text
+Private vulnerability reporting   Enabled
+```
+
+### Policy
+
+```text
+Default for new repositories      Private and Internal
+Enforce configuration             Don't enforce
+```
+
+Security features and merge requirements are kept separate:
+
+```text
+Security configuration
+    → enables capabilities
+
+Repository properties + rulesets
+    → decide which results block merging
+```
+
+---
+
+## 6. Generic repository baseline
+
+Configuration:
+
+```text
+ci/precommit/baseline.yaml
+```
+
+The baseline does not include ROS-specific formatting rules.
+
+Checks include:
+
+- files larger than **20 MB**
+- filename case conflicts
+- merge-conflict markers
+- broken symlinks
+- YAML syntax
+- JSON syntax
+- TOML syntax
+- XML syntax
+- private-key detection
+- forbidden files (`.env`, private keys, keystores, OS/editor artifacts)
+- rosbag recordings (`.bag`, `.mcap`, `.db3`) outside `test/`, `tests/`, `test_data/` or `testdata/` directories
+- final newline consistency
+- LF line endings
+- trailing whitespace
+
+The baseline workflow also scans new commits for secrets (TruffleHog) and lints the commits of the
+pull request against Conventional Commits (advisory). The blocking commit message check is the pull
+request title (`pr-title.yml`), which becomes the squash commit message; it is advisory for the
+`experimental` and `legacy` profiles. See [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages).
+
+Advisory hooks (`typos`, `actionlint`, `zizmor`) block only when `quality_profile = production`;
+otherwise their findings are listed in the job summary.
+
+Excluded paths:
+
+```text
+third_party/
+vendor/
+external/
+.aperion-ci/
+```
+
+Consumer repositories use the approved baseline from:
+
+```text
+aperion-robotics/.github@main
+```
+
+The central `.github` repository validates its own workflows, scripts and configurations with
+`ci-self-test.yml` (actionlint, zizmor, shellcheck, script tests, pre-commit and commitlint configuration).
+
+---
+
+## 7. Local pre-commit workflow
+
+Approved version:
+
+```text
+pre-commit 4.6.2
+```
+
+pre-commit 4.6.2 needs Python 3.10 or newer and git 2.31 or newer. Ubuntu 18.04 (Melodic) and 20.04 (Noetic)
+have neither, so install and run pre-commit on the host (Ubuntu 22.04 or newer) and commit from there, also
+when you build inside a ROS 1 container.
+
+Install:
+
+```bash
+sudo apt update
+sudo apt install -y pipx
+
+pipx ensurepath
+pipx install pre-commit==4.6.2
+```
+
+Clone the central configuration:
+
+```bash
+mkdir -p ~/.config/aperion
+
+git clone \
+  https://github.com/aperion-robotics/.github.git \
+  ~/.config/aperion/dot-github
+```
+
+Update it:
+
+```bash
+git -C ~/.config/aperion/dot-github pull --ff-only
+```
+
+Install the hook in an Aperion repository:
+
+```bash
+pre-commit install \
+  --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml \
+  --install-hooks
+```
+
+Run manually:
+
+```bash
+pre-commit run \
+  --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml
+```
+
+Run against all files:
+
+```bash
+pre-commit run \
+  --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml \
+  --all-files \
+  --show-diff-on-failure
+```
+
+Run only against branch changes:
+
+```bash
+git fetch origin
+
+pre-commit run \
+  --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml \
+  --from-ref origin/main \
+  --to-ref HEAD \
+  --show-diff-on-failure
+```
+
+Replace `origin/main` if the repository uses another default branch.
+
+If hooks modify files:
+
+```bash
+git diff
+git add <fixed-files>
+```
+
+Then run the check or commit again.
+
+See [docs/developer/pre-commit.md](docs/developer/pre-commit.md).
+
+---
+
+## 8. ROS 1 policy
+
+ROS 1 Melodic and ROS 1 Noetic are EOL upstream distributions. We keep them as legacy compatibility targets while the migration to ROS 2 continues.
+
+For EOL distributions industrial_ci builds against the final snapshot: the `snapshots.ros.org` apt repository
+and the rosdistro tag of the EOL date (e.g. `melodic/2023-06-27`). Python 2 rosdep keys therefore still resolve,
+and `ROS_REPO` is not set.
+
+ROS 1 builds cache compiler output (ccache) per pull request, so later pushes to the same pull request
+rebuild faster.
+
+### Melodic
+
+Uses:
+
+```text
+ros-industrial/industrial_ci
+```
+
+with:
+
+```text
+ROS_DISTRO=melodic
+BUILDER=catkin_tools
+```
+
+Checks include:
+
+- dependency installation through `rosdep`
+- catkin build
+- package tests
+- installation validation
+- `catkin_lint`
+- `clang-tidy`
+- verbose tests
+
+Melodic Python 2 compatibility must be preserved where still required.
+
+### Noetic
+
+Uses:
+
+```text
+ros-industrial/industrial_ci
+```
+
+with:
+
+```text
+ROS_DISTRO=noetic
+BUILDER=catkin_tools
+```
+
+Checks include:
+
+- dependency installation through `rosdep`
+- catkin build
+- package tests
+- installation validation
+- `catkin_lint`
+- `clang-tidy`
+- Python pylint error checks
+- verbose tests
+
+Pylint is intentionally limited to:
+
+```text
+--errors-only
+```
+
+Existing package-level `roslint` checks remain supported.
+
+Large formatting-only changes to legacy ROS 1 repositories should be avoided unless explicitly approved.
+
+### Repository CI files
+
+ROS repositories may add, per workflow (`ros1-melodic`, `ros1-noetic`, `ros2-lyrical`):
+
+| File                   | Purpose                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| `.ci/<workflow>.repos` | Source dependencies (vcstool format), e.g. other Aperion ROS packages              |
+| `.ci/<workflow>.env`   | Allowlisted options, one `KEY=VALUE` per line, `#` comments                        |
+
+Private source dependencies:
+
+- every `aperion-robotics` repository referenced by the manifest must be listed in
+  [`ci/source-deps/allowed-repositories.txt`](ci/source-deps/allowed-repositories.txt); add it through a pull
+  request to this repository
+- the CI GitHub App token is created only for the referenced repositories, exists only in the import step and
+  never reaches the build or the tests
+- SSH URLs (`git@github.com:...`) are fetched over HTTPS
+
+Options accepted in `.ci/<workflow>.env`:
+
+| Workflow       | Keys                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `ros1-*`       | `ROSDEP_SKIP_KEYS`, `ADDITIONAL_DEBS`, `CMAKE_ARGS`, `TARGET_CMAKE_ARGS`, `UPSTREAM_CMAKE_ARGS`, `CATKIN_LINT_ARGS`, `CLANG_TIDY_ARGS` |
+| `ros2-lyrical` | `ROSDEP_SKIP_KEYS`, `CMAKE_ARGS`                                                                                    |
+
+Values are a single line of letters, digits, spaces and `_ . , : = / + * @ -`. Prefer fixing `package.xml`
+to use the correct rosdep key over skipping keys, for example:
+
+```text
+# .ci/ros1-melodic.env - only for dependencies without any rosdep key
+ROSDEP_SKIP_KEYS=some-vendor-sdk
+ADDITIONAL_DEBS=libsome-vendor-sdk-dev
+```
+
+Changes to `.ci/` affect what CI checks; review them like code (CODEOWNERS recommended).
+
+---
+
+## 9. ROS 2 Lyrical policy
+
+Primary ROS 2 production target:
+
+```text
+Ubuntu 26.04 Resolute
+ROS 2 Lyrical
+```
+
+CI implementation:
+
+```text
+ros-tooling/action-ros-ci
+```
+
+The workflow:
+
+- creates a clean ROS workspace
+- installs declared dependencies through `rosdep`
+- builds with `colcon` up to the repository's packages
+- runs the tests of the repository's packages (source dependencies are built, not tested)
+- executes package-level ament lint tests
+
+ROS 2 packages should normally declare:
 
 ```xml
 <test_depend>ament_lint_auto</test_depend>
 <test_depend>ament_lint_common</test_depend>
 ```
 
-For CMake packages:
+CMake packages should normally use:
 
 ```cmake
 if(BUILD_TESTING)
@@ -79,10 +699,7 @@ if(BUILD_TESTING)
 endif()
 ```
 
-This allows `colcon test` to execute the ROS-provided linting tools together
-with package tests.
-
-C++ targets should enable compiler warnings:
+C++ targets should enable:
 
 ```cmake
 target_compile_options(
@@ -94,66 +711,335 @@ target_compile_options(
 )
 ```
 
-Warnings are not globally promoted to errors during the initial CI rollout.
+Warnings are not globally promoted to errors at this stage.
 
-## ROS 1 legacy policy
+`ament_lint_common` includes `ament_copyright`, which fails on files without a recognized license header.
+Proprietary packages either add the agreed company header or exclude that linter explicitly:
 
-ROS 1 Melodic and ROS 1 Noetic are end-of-life upstream distributions.
-
-They are therefore treated as legacy compatibility targets while software is migrated to ROS 2.
-
-ROS 1 CI uses ROS-Industrial `industrial_ci` and includes:
-
-- dependency installation through rosdep
-- catkin build
-- package tests
-- installation validation
-- catkin_lint
-- clang-tidy
-
-Existing package-level `roslint` tests remain supported.
-Large-scale automatic reformatting of legacy ROS 1 code is intentionally avoided.
-
-## Local baseline checks
-
-The same generic repository checks used in CI can be run locally:
-
-```bash
-pipx run --spec pre-commit==4.6.2 \
-  pre-commit run \
-  --config ci/precommit/baseline.yaml \
-  --all-files
+```cmake
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
+  ament_lint_auto_find_test_dependencies()
+endif()
 ```
 
-GitHub Actions workflows can be validated with:
+Unlike the ROS 1 workflows, the ROS 2 workflow does not run clang-tidy yet.
+
+Coverage is currently disabled and should be introduced later as a dedicated quality gate.
+
+---
+
+## 10. Pull-request merge model
+
+A typical managed product repository may require:
+
+```text
+Pull request
+   |
+   +-- 1 approval
+   +-- review conversations resolved
+   +-- Aperion Baseline
+   +-- Pull Request Title
+   +-- Dependency Review
+   +-- ROS1 Melodic CI      if ros1_melodic = true
+   +-- ROS1 Noetic CI       if ros1_noetic = true
+   +-- ROS2 Lyrical CI      if ros2_lyrical = true
+   +-- CodeQL               if codeql_required = true
+   |
+   v
+ Merge
+```
+
+Existing PRs opened before a new required-workflow ruleset was activated may display:
+
+```text
+Expected - Waiting for workflow to run
+```
+
+Trigger a new synchronization event, for example:
 
 ```bash
-actionlint .github/workflows/*.yml
+git commit --allow-empty -m "ci: retrigger required workflows"
+git push
 ```
-Developer workstation setup will be automated through the Aperion developer tooling repository.
 
-## Security
+Do not disable organization rules merely to unblock an old PR without first understanding the missing event or failing check.
 
-Security controls are implemented using a combination of:
+---
 
-- GitHub Secret Scanning and Push Protection
-- GitHub CodeQL / Code Scanning
-- Dependabot alerts and security updates
-- Dependency Review
-- organization rulesets
-- least-privilege GitHub Actions permissions
+## 11. CI rollout policy
 
-See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+Recommended rollout order:
 
-## Changing organization CI
+```text
+1. central .github repository
+2. pilot ARISTOS repositories
+3. active ARISTOS production repositories
+4. shared production libraries
+5. BlueBOT repositories
+6. development / experimental repositories
+7. legacy repositories
+```
 
-Changes to this repository affect multiple repositories across Aperion Robotics.
+Public upstream forks and mirrors should normally remain:
 
-All changes must therefore:
+```text
+ci_managed = false
+```
+
+until Aperion intentionally takes ownership.
+
+Some legacy repositories will expose existing technical debt when CI is enabled.
+
+The preferred approach is:
+
+```text
+fix or explicitly document the repository-specific issue
+```
+
+rather than weakening the organization-wide policy for every repository.
+
+---
+
+## 12. Changing central CI
+
+Changes to this repository can affect many repositories across Aperion Robotics.
+
+All central CI changes must:
 
 1. be made through a pull request
-2. pass the repository validation workflows
-3. receive review
-4. be tested on representative pilot repositories before broad rollout
+2. pass central validation
+3. receive the required review
+4. preserve least-privilege GitHub Actions permissions
+5. keep third-party Actions pinned to immutable SHAs
+6. keep required container images pinned by digest where applicable
+7. be tested on representative pilot repositories before broad rollout (see below)
+8. update this README and relevant developer documentation when organization policy changes
 
-Changes to central CI must never be committed directly to `main`.
+Direct commits to `main` are not allowed.
+
+### Testing central CI changes
+
+Every new feature, bug fix or change to a required central workflow must be tested **before**
+merging into `main`. A green check on the `.github` pull request alone is not enough:
+organization-required workflows normally execute from the ref configured in their
+rulesets, which may differ from the proposed branch.
+
+#### Pilot repositories and isolation
+
+Use **private, disposable pilot repositories** rather than making experimental changes
+to production repositories. Reference pilot repositories currently include:
+
+| Pilot repository | Scope |
+| --- | --- |
+| `ci-pilot-ros1-melodic-dep` + `ci-pilot-ros1-melodic-app` | Melodic, private source dependency, catkin and lint |
+| `ci-pilot-ros1-noetic-dep` + `ci-pilot-ros1-noetic-app` | Noetic, private source dependency, catkin and lint |
+| `ci-pilot-ros2-lyrical-dep` + `ci-pilot-ros2-lyrical-app` | Lyrical, private source dependency, colcon and ament lint |
+| `ci-pilot-codeql` | CodeQL language detection, analysis and security merge gate |
+
+In pilot *application* repositories, keep `ci_managed=true`, `codeql_required=true`,
+and enable only the applicable ROS distribution property. Use `ci_pilot=true`
+where the matching pilot rulesets are configured. Keep pilot required-workflow
+rulesets **scoped to pilot repositories only** and pointing at the branch (or
+release-candidate ref) of the central CI pull request. Do not repoint the production
+rulesets to an unmerged branch. Verify the **effective rulesets** in each pilot
+repository before interpreting a run; multiple rulesets are additive.
+
+When testing CodeQL separately, use `ci-pilot-codeql` with `ci_managed=false`,
+`codeql_required=true`; the CodeQL scanner itself must also be configured and
+run, as the ruleset only enforces **published code-scanning results**.
+
+#### Step-by-step validation procedure
+
+1. **Propose the change:** open a pull request in `aperion-robotics/.github`;
+   record the central branch/SHA and affected workflows, scripts or policies.
+   Run and inspect `ci-self-test.yml` (actionlint, shellcheck, script tests and
+   other central checks). Ensure the central self-test is enforced as a required
+   check before treating this gate as mandatory.
+2. **Target pilots safely:** keep their existing PR branches (or create new ones)
+   and configure the pilot-only rulesets to reference the central PR branch.
+   The ROS workflows check out central scripts and allowlists using
+   `${{ github.workflow_sha }}`, so the evaluated workflow and its configuration
+   should come from the same central commit.
+3. **Run a positive test:** open/update each relevant pilot PR; verify
+   checkout, `rosdep`, source dependency import where applicable, build,
+   unit tests and linters all pass. Check the *test report*, not only the
+   green overall check. Record the run URLs and commit SHAs.
+4. **Test without source dependencies:** remove `.ci/<workflow>.repos` on a
+   separate pilot PR and verify that GitHub App token creation and dependency
+   import are skipped while the build and tests still pass. Do not remove
+   manifests from the production branch.
+5. **Run negative tests:** on separate, intentionally unmergeable PRs,
+   introduce a failing GTest (or the relevant lint/CI violation); verify
+   the required ROS workflow fails **and merge is blocked**. Where relevant,
+   test a disallowed source dependency and confirm allowlist enforcement.
+   Close negative-test PRs **without merging** after saving the evidence.
+6. **Validate CodeQL separately:** ensure supported source languages are
+   present on the pilot's **default branch**, CodeQL setup is enabled and
+   completed for the intended languages, and analysis results are published
+   for the PR. Verify both a clean PR and a controlled alert at or above
+   the ruleset threshold. A configured scanner with `languages=[]` is
+   **not** evidence of successful CodeQL analysis. Follow normal PR review
+   protections during initial repository bootstrap.
+7. **Review merge protection:** confirm branch protection, required workflow
+   results, review approvals and CodeQL code-scanning merge protection apply
+   as intended. Never bypass or loosen organization-wide rules just to
+   make a pilot pass.
+8. **Approve rollout:** attach a validation summary and links to the central
+   PR; merge only after the relevant checks, review and pilot evidence are
+   complete. Follow the phased rollout in [section 11](#11-ci-rollout-policy)
+   and monitor the first production PRs.
+
+#### Required evidence for each central CI pull request
+
+In the central PR description or a linked validation document, capture:
+
+- central CI branch/SHA, affected workflows, change summary and reviewer
+- pilot repository, PR link, Actions run URL, result and workflow ref/SHA
+- positive build/test/lint results and whether private dependencies imported
+- standalone/no-manifest behavior and skipped authentication steps, where applicable
+- negative test demonstrating **failure and merge blocking**, plus PR closure
+- CodeQL languages **actually analyzed** and rule enforcement, when relevant
+- known limitations, exemptions, follow-up issues and rollout/rollback plan
+
+A practical validation matrix (mark `N/A` only with a reason):
+
+| Scenario | Expected result |
+| --- | --- |
+| Melodic + private source dependency | PASS |
+| Noetic + private source dependency | PASS |
+| Lyrical + private source dependency | PASS |
+| Lyrical without `.repos` | PASS; GitHub App import steps skipped |
+| Deliberately failing GTest | FAIL; merge blocked |
+| Disallowed private dependency (if changed) | FAIL before build |
+| CodeQL clean PR (if security configuration changed) | Analysis complete; policy satisfied |
+| CodeQL alert above policy threshold (if relevant) | Merge blocked |
+| Central `ci-self-test.yml` | PASS; required gate verified |
+
+Useful GitHub CLI commands:
+
+```bash
+# Existing ROS pilot checks:
+for distro in ros1-melodic ros1-noetic ros2-lyrical; do
+  gh pr checks 1 --repo "aperion-robotics/ci-pilot-${distro}-app"
+done
+
+# Central CI PR:
+gh pr checks 3 --repo aperion-robotics/.github
+
+# Inspect which central workflow revision a pilot run used:
+gh run view <run-id> --repo aperion-robotics/<pilot-app-repo> --log
+```
+
+**Security note:** The approved source dependency repositories belong in
+`ci/source-deps/allowed-repositories.txt` and are fetched with a short-lived,
+least-privilege GitHub App token. Never paste private keys or tokens into pilot
+sources, logs, PR descriptions or the public `.github` repository.
+
+### Versioning
+
+Today the rulesets and `APERION_CI_REF` both use `main`, so every merge changes the gates of all managed
+repositories at once. Recommended next step: release tags (`v1.2.0`). In the release commit set
+`APERION_CI_REF` to the new tag, tag it, then move the rulesets to the tag; the pilot rulesets keep following
+the branch under test.
+
+> Organization rulesets, custom properties and Advanced Security configurations are **not stored in this Git repository**. Keep this README updated when organization-level settings change.
+
+---
+
+## Developer Handbook
+
+English developer onboarding, ROS1/ROS2 workflows, VS Code, pre-commit and central CI contribution/testing procedures:
+
+- [Developer Handbook](docs/handbook/README.md)
+- [Browsable HTML guide](docs/site/index.html) (open locally for the complete styled view)
+- [Wiki publication sources](docs/wiki-export/Home.md) (published separately after review)
+
+Documentation sources are Markdown in `docs/handbook/`. Generate exports using `python3 scripts/docs/build_docs.py` (requires `mistune`) and validate with `python3 scripts/docs/validate_docs.py`. Wiki publication is an explicit, reviewed action: `python3 scripts/docs/publish_wiki.py --publish`.
+
+## 13. Developer documentation
+
+Documentation lives under:
+
+```text
+docs/developer/
+```
+
+Current guides:
+
+- [Developer documentation index](docs/developer/README.md)
+- [Pre-commit setup](docs/developer/pre-commit.md)
+- [EditorConfig](docs/developer/editorconfig.md)
+- [VS Code setup](docs/developer/vscode.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md)
+
+---
+
+## 14. Engineering principles
+
+General rules:
+
+- centralize policy where it improves consistency
+- keep repository classification explicit
+- separate generic hygiene from ROS-specific validation
+- preserve legacy ROS compatibility without freezing engineering standards
+- use ROS-native lint/build tooling where practical
+- keep GitHub Actions permissions minimal
+- pin third-party CI dependencies
+- avoid organization-wide exceptions for repository-specific technical debt
+- keep local developer feedback fast
+- use CI as the authoritative merge gate
+- keep simulation, HIL, performance and long-running validation in dedicated integration layers
+
+Validation hierarchy:
+
+```text
+Editor
+   ↓
+pre-commit
+   ↓
+local ROS build / tests
+   ↓
+pull request
+   ↓
+organization-required GitHub CI
+   ↓
+review
+   ↓
+merge
+   ↓
+integration / simulation / HIL / release validation
+```
+
+---
+
+## 15. Current CI foundation
+
+Current CI/security setup covers:
+
+```text
+Repository hygiene
+ROS 1 Melodic
+ROS 1 Noetic
+ROS 2 Lyrical
+Dependency vulnerability review
+CodeQL merge enforcement where required
+Dependabot
+Secret scanning
+Push protection
+PR governance
+```
+
+Possible next steps:
+
+- coverage thresholds
+- sanitizers
+- nightly full-workspace validation
+- simulation tests
+- hardware-in-the-loop tests
+- performance regression tests
+- SBOM generation
+- artifact provenance / attestations
+- release-specific deployment validation

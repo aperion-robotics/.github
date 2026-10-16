@@ -1,0 +1,69 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Repository CI Files | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="" href="ros2.html">ROS2 Lyrical</a><a class="active" href="repository-ci-files.html">Repository CI Files</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>Repository CI Files</h1>
+<p>Consumer repositories contain <strong>no workflows</strong>. They influence the central ROS workflows only through files under
+<code>.ci/</code>, one pair per workflow (<code>ros1-melodic</code>, <code>ros1-noetic</code>, <code>ros2-lyrical</code>):</p>
+<table>
+<thead>
+<tr>
+  <th>File</th>
+  <th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>.ci/&lt;workflow&gt;.repos</code></td>
+  <td>Source dependencies in vcstool format, e.g. other Aperion ROS packages</td>
+</tr>
+<tr>
+  <td><code>.ci/&lt;workflow&gt;.env</code></td>
+  <td>Allowlisted options, one <code>KEY=VALUE</code> per line, <code>#</code> comments</td>
+</tr>
+</tbody>
+</table>
+<p>Both files are optional. Without a <code>.repos</code> file the GitHub App token and import steps are skipped.</p>
+<h2>Source dependencies (<code>.repos</code>)</h2>
+<pre><code class="language-yaml">repositories:
+  aperion_ci_lyrical_dep:
+    type: git
+    url: https://github.com/aperion-robotics/ci-pilot-ros2-lyrical-dep.git
+    version: main
+</code></pre>
+<ul>
+<li>Every <code>aperion-robotics</code> repository in the manifest must be listed in
+<a href="https://github.com/aperion-robotics/.github/blob/main/ci/source-deps/allowed-repositories.txt"><code>ci/source-deps/allowed-repositories.txt</code></a>. Add it through a pull request to the central repository, otherwise the workflow fails before the build.</li>
+<li>The GitHub App token is scoped to exactly the referenced repositories and exists only in the import step.</li>
+<li>SSH URLs (<code>git@github.com:...</code>) are fetched over HTTPS. Public repositories do not need an allowlist entry.</li>
+<li>ROS 2 builds and tests only the repository's own packages. Dependencies are just built, not triggered for testing.</li>
+</ul>
+<h2>Options (<code>.env</code>)</h2>
+<table>
+<thead>
+<tr>
+  <th>Workflow</th>
+  <th>Allowed keys</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>ros1-melodic</code>, <code>ros1-noetic</code></td>
+  <td><code>ROSDEP_SKIP_KEYS</code>, <code>ADDITIONAL_DEBS</code>, <code>CMAKE_ARGS</code>, <code>TARGET_CMAKE_ARGS</code>, <code>UPSTREAM_CMAKE_ARGS</code>, <code>CATKIN_LINT_ARGS</code>, <code>CLANG_TIDY_ARGS</code></td>
+</tr>
+<tr>
+  <td><code>ros2-lyrical</code></td>
+  <td><code>ROSDEP_SKIP_KEYS</code>, <code>CMAKE_ARGS</code></td>
+</tr>
+</tbody>
+</table>
+<p>Values are a single line of letters, digits, spaces and <code>_ . , : = / + * @ -</code>. Anything else leads to a failed workflow.
+Prefer fixing the rosdep key in <code>package.xml</code> over <code>ROSDEP_SKIP_KEYS</code>.</p>
+<p>Example:</p>
+<pre><code class="language-text"># .ci/ros2-lyrical.env
+CMAKE_ARGS=-DCMAKE_BUILD_TYPE=RelWithDebInfo
+</code></pre>
+<h2>Repository hygiene for CI files</h2>
+<ul>
+<li>Tend <code>.ci/</code> like code. Assign it an owner in <code>.github/CODEOWNERS</code>, respect formatting.</li>
+<li>The ROS workflows create <code>.aperion-ci/</code> and <code>aperion-upstream/</code> (for ROS1) inside the checkout. Do not forget to add them in <code>.gitignore</code>.</li>
+<li>Currently, ROS 1 and ROS 2 packages cannot share a repository, since both workflows resolve every <code>package.xml</code>. Separate them to different branches or repositories.</li>
+</ul>
+<p>The reference repositories <code>ci-pilot-*</code> contain various examples. Study them.</p>
+</article><footer>Generated from docs/handbook Markdown.</footer></main></div></body></html>

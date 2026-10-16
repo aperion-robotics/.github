@@ -64,7 +64,7 @@ ROS 1 Melodic and ROS 1 Noetic are end-of-life upstream distributions.
 Repositories that still depend on these distributions are maintained as legacy
 compatibility targets while migration to supported ROS 2 platforms continues.
 
-ROS 2 Jazzy is the primary supported ROS 2 production target.
+ROS 2 Lyrical is the primary supported ROS 2 production target.
 
 ## Secrets and credentials
 

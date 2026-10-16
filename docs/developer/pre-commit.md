@@ -24,6 +24,7 @@ The organization baseline currently checks for:
 - missing final newlines
 - mixed line endings
 - trailing whitespace
+- forbidden files (`.env`, private keys, keystores, OS/editor artifacts)
 
 The generic baseline intentionally does **not** enforce ROS-specific C++ or Python formatting.
 
@@ -39,12 +40,20 @@ This is useful for Aperion repositories because the same organization contains:
 
 - ROS 1 Melodic
 - ROS 1 Noetic
-- ROS 2 Jazzy
+- ROS 2 Lyrical
 - infrastructure and non-ROS repositories
 
 The fast repository-hygiene layer can therefore remain independent from the ROS runtime and Python version used by the project itself.
 
 ---
+
+## Requirements
+
+pre-commit 4.6.2 needs Python 3.10 or newer and git 2.31 or newer.
+
+Ubuntu 18.04 (ROS Melodic) ships Python 3.6 and git 2.17, and Ubuntu 20.04 (ROS Noetic) ships Python 3.8 and
+git 2.25, so pre-commit cannot run inside those ROS 1 containers. Install it on the host (Ubuntu 22.04 or newer)
+and commit from the host; the container only needs the source tree, which is usually bind-mounted.
 
 ## Install `pipx`
 
@@ -324,10 +333,10 @@ The central configuration should be updated, validated, tested, and merged befor
 
 The generic pre-commit baseline does not replace ROS 2 linting.
 
-For Jazzy:
+For Lyrical:
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/lyrical/setup.bash
 ```
 
 ## C/C++

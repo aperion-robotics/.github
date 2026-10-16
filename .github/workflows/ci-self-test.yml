@@ -1,0 +1,156 @@
+# Aperion Robotics - central CI self-test
+#
+# Runs only in aperion-robotics/.github.
+#
+# Organization rulesets run the workflows they require from the ref they
+# point at (main), so in this repository the required "Aperion Baseline"
+# check exercises the workflows of main, not the ones under review. This
+# workflow is not required by an organization ruleset, so it runs the
+# version in the pull request. Make it a required status check of this
+# repository.
+#
+# Behaviour of the ROS workflows on real ROS code is validated on pilot
+# repositories (see README, "Testing central CI changes").
+
+name: Central CI Self-Test
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PRE_COMMIT_VERSION: 4.6.2
+  ZIZMOR_VERSION: 1.30.1
+
+jobs:
+  self-test:
+    name: central CI definition self-test
+    if: ${{ github.repository == 'aperion-robotics/.github' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout central CI repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install actionlint
+        shell: bash
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+
+          ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${ARCHIVE}"
+
+          curl -fsSL "$URL" -o "$RUNNER_TEMP/$ARCHIVE"
+
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/$ARCHIVE" \
+            | sha256sum -c -
+
+          tar -xzf "$RUNNER_TEMP/$ARCHIVE" \
+            -C "$RUNNER_TEMP" \
+            actionlint
+
+      # actionlint also shellchecks every run: block (shellcheck is preinstalled).
+      - name: Validate GitHub Actions workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          "$RUNNER_TEMP/actionlint" \
+            .github/workflows/*.yml
+
+      # Online audits (e.g. impostor commits behind pinned SHAs) need a token;
+      # the job token has contents: read only.
+      - name: Audit GitHub Actions workflows (zizmor)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          pipx run "zizmor==${ZIZMOR_VERSION}" \
+            --no-progress \
+            --min-severity=medium \
+            .github/workflows/
+
+      - name: Check CI scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shellcheck ci/scripts/*.sh ci/scripts/tests/*.sh
+
+      - name: Test CI scripts
+        shell: bash
+        run: ci/scripts/tests/run.sh
+
+      - name: Validate central pre-commit configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pipx run \
+            --spec "pre-commit==${PRE_COMMIT_VERSION}" \
+            pre-commit validate-config \
+            ci/precommit/baseline.yaml
+
+      # docs/site and docs/wiki-export (published to the wiki) are generated
+      # from docs/handbook; fail when they were not regenerated.
+      - name: Check generated documentation
+        shell: bash
+        env:
+          MISTUNE_VERSION: 3.3.4
+        run: |
+          set -euo pipefail
+
+          python3 -m venv "$RUNNER_TEMP/docs-venv"
+          "$RUNNER_TEMP/docs-venv/bin/pip" install --quiet "mistune==${MISTUNE_VERSION}"
+          "$RUNNER_TEMP/docs-venv/bin/python" scripts/docs/build_docs.py
+          python3 scripts/docs/validate_docs.py
+
+          if [[ -n "$(git status --porcelain -- docs/site docs/wiki-export)" ]]; then
+            git status --short -- docs/site docs/wiki-export
+            echo "::error::Generated documentation is outdated! Run scripts/docs/build_docs.py and commit the result."
+            exit 1
+          fi
+
+      - name: Test commitlint configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd ci/commitlint
+          npm ci --ignore-scripts --no-audit --no-fund --loglevel=error
+
+          lint() { printf '%b\n' "$1" | npx --no-install commitlint --config .commitlintrc.yml >/dev/null 2>&1; }
+
+          rc=0
+          for msg in \
+            'fix(aristos_behaviour): handle gnss timeout' \
+            'feat!: drop melodic support' \
+            'ci: retrigger required workflows' \
+            'fix: handle gnss timeout\n\nThe driver hung when the receiver stopped.\nSee #123 for the field log.'
+          do
+            lint "$msg" || { echo "::error::rejected valid message: $msg"; rc=1; }
+          done
+          for msg in \
+            'Update CI workflows' \
+            'fix: Capitalized subject' \
+            'ci: trailing period.' \
+            'feature: unknown type'
+          do
+            if lint "$msg"; then echo "::error::accepted invalid message: $msg"; rc=1; fi
+          done
+          exit "$rc"

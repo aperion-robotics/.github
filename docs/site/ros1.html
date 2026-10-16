@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROS1 Melodic / Noetic | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="active" href="ros1.html">ROS1 Melodic / Noetic</a><a class="" href="ros2.html">ROS2 Lyrical</a><a class="" href="repository-ci-files.html">Repository CI Files</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>ROS1 Development — Melodic / Noetic</h1>
+<p>ROS1 Melodic targets the Ubuntu 18.04/Python2-era environment; Noetic targets Ubuntu 20.04/Python3. Both are legacy compatibility targets.</p>
+<table>
+<thead>
+<tr>
+  <th>Host (recommended)</th>
+  <th>Matching ROS1 container</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>VS Code, Git, pre-commit 4.6.2, PR work</td>
+  <td><code>rosdep</code>, <code>catkin_tools</code>, <code>roslint</code>, unit tests, ROS runtime</td>
+</tr>
+</tbody>
+</table>
+<p>Keep Git commits on the host if you want the host-installed pre-commit hook to execute; mount the source into the container for ROS builds/tests.</p>
+<h2>Noetic validation (inside its workspace/container)</h2>
+<pre><code class="language-bash">source /opt/ros/noetic/setup.bash
+cd /path/to/catkin_ws
+catkin build
+catkin test
+catkin_test_results --verbose
+</code></pre>
+<h2>Melodic validation (inside its workspace/container)</h2>
+<pre><code class="language-bash">source /opt/ros/melodic/setup.bash
+cd /path/to/catkin_ws
+catkin build
+catkin test
+catkin_test_results --verbose
+</code></pre>
+<p>Source dependencies and CI options are set in <code>.ci/ros1-melodic.*</code> / <code>.ci/ros1-noetic.*</code> (<a href="repository-ci-files.html">repository CI files</a>).</p>
+<p><code>industrial_ci</code> is authoritative in CI and also runs <code>catkin_lint</code> and <code>clang-tidy</code>, with Python error checks for Noetic. Respect existing package-level <code>roslint</code> tests.</p>
+<p><strong>Do not</strong> mass-apply <code>ament_uncrustify</code>, modern Python formatters or large formatting-only changes to legacy ROS1 code. Maintain Python2 compatibility where required.</p>
+</article><footer>Generated from docs/handbook Markdown.</footer></main></div></body></html>

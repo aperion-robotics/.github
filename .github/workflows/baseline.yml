@@ -18,6 +18,11 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   PRE_COMMIT_VERSION: 4.6.2
@@ -35,8 +40,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Consumer repositories use the approved organization configuration
-      # from aperion-robotics/.github@main.
+      # Consumer repositories use the organization configuration from the
+      # aperion-robotics/.github from the commit of this workflow (workflow_sha)
       #
       # When this workflow runs inside aperion-robotics/.github itself,
       # the configuration under review is already present in the working tree.
@@ -45,25 +50,29 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: aperion-robotics/.github
-          ref: main
+          ref: ${{ github.workflow_sha }}
           path: .aperion-ci
           persist-credentials: false
 
       - name: Determine comparison base
         id: base
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
         run: |
           set -euo pipefail
 
-          case "${{ github.event_name }}" in
+          case "${EVENT_NAME}" in
             pull_request)
-              BASE_SHA="${{ github.event.pull_request.base.sha }}"
+              BASE_SHA="${PR_BASE_SHA}"
               ;;
             merge_group)
-              BASE_SHA="${{ github.event.merge_group.base_sha }}"
+              BASE_SHA="${MERGE_GROUP_BASE_SHA}"
               ;;
             *)
-              echo "Unsupported event: ${{ github.event_name }}"
+              echo "Unsupported event: ${EVENT_NAME}"
               exit 1
               ;;
           esac
@@ -96,76 +105,96 @@ jobs:
           echo "Using configuration: $CONFIG"
           echo "path=$CONFIG" >> "$GITHUB_OUTPUT"
 
+      - name: Cache pre-commit environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ env.PRE_COMMIT_VERSION }}-${{ hashFiles(steps.config.outputs.path) }}
+
       - name: Validate baseline configuration
         shell: bash
+        env:
+          CONFIG: ${{ steps.config.outputs.path }}
         run: |
           set -euo pipefail
 
           pipx run \
             --spec "pre-commit==${PRE_COMMIT_VERSION}" \
             pre-commit validate-config \
-            "${{ steps.config.outputs.path }}"
+            "${CONFIG}"
 
       - name: Run baseline pre-commit checks
         shell: bash
+        env:
+          CONFIG: ${{ steps.config.outputs.path }}
+          BASE_SHA: ${{ steps.base.outputs.base_sha }}
         run: |
           set -euo pipefail
 
           pipx run \
             --spec "pre-commit==${PRE_COMMIT_VERSION}" \
             pre-commit run \
-            --config "${{ steps.config.outputs.path }}" \
-            --from-ref "${{ steps.base.outputs.base_sha }}" \
+            --config "${CONFIG}" \
+            --from-ref "${BASE_SHA}" \
             --to-ref HEAD \
             --show-diff-on-failure \
             --color=always
 
-  central-ci-self-test:
-    name: central CI self-test
-    if: ${{ github.repository == 'aperion-robotics/.github' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout central CI repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install actionlint
+      # The checks below run even after a failed check, to report all
+      # problems at once. Advisory hooks block only for the production
+      # profile; elsewhere their findings are listed in the job summary,
+      # because a continue-on-error step otherwise looks green.
+      - name: Run advisory pre-commit checks (spelling, GitHub Actions)
+        if: ${{ !cancelled() }}
+        continue-on-error: ${{ github.event.repository.custom_properties.quality_profile != 'production' }}
         shell: bash
         env:
-          ACTIONLINT_VERSION: 1.7.12
-          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          CONFIG: ${{ steps.config.outputs.path }}
+          BASE_SHA: ${{ steps.base.outputs.base_sha }}
         run: |
           set -euo pipefail
 
-          ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${ARCHIVE}"
+          failed=()
+          for hook in $(yq -r '.repos[].hooks[] | select(.stages // [] | contains(["manual"])) | .id' "${CONFIG}"); do
+            pipx run \
+              --spec "pre-commit==${PRE_COMMIT_VERSION}" \
+              pre-commit run "$hook" \
+              --hook-stage manual \
+              --config "${CONFIG}" \
+              --from-ref "${BASE_SHA}" \
+              --to-ref HEAD \
+              --color=always || failed+=("$hook")
+          done
 
-          curl -fsSL "$URL" -o "$RUNNER_TEMP/$ARCHIVE"
+          if (( ${#failed[@]} )); then
+            echo "::warning::Advisory checks reported findings: ${failed[*]}"
+            {
+              echo "### Advisory checks reported findings"
+              echo
+              echo "Hooks: \`${failed[*]}\` (details in the log of this step)."
+              echo "They block merging only when quality_profile = production."
+              echo "Reproduce locally: \`pre-commit run <hook-id> --hook-stage manual --config <baseline.yaml>\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
-          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/$ARCHIVE" \
-            | sha256sum -c -
+      # Scan for secrets on all new commits in the history
+      # This tries to avoid deleted secrets being leaked from older commits
+      - name: Scan new commits for secrets
+        if: ${{ !cancelled() }}
+        uses: trufflesecurity/trufflehog@005b692bdfd0764e5da402887d9ab9196f8023dc # v3.99.1
+        with:
+          base: ${{ steps.base.outputs.base_sha }}
+          head: ${{ github.sha }}
+          extra_args: --results=verified,unknown
 
-          tar -xzf "$RUNNER_TEMP/$ARCHIVE" \
-            -C "$RUNNER_TEMP" \
-            actionlint
-
-      - name: Validate GitHub Actions workflows
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          "$RUNNER_TEMP/actionlint" \
-            .github/workflows/*.yml
-
-      - name: Validate central pre-commit configuration
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          pipx run \
-            --spec "pre-commit==${PRE_COMMIT_VERSION}" \
-            pre-commit validate-config \
-            ci/precommit/baseline.yaml
+      # Lint every commit of the pull request (advisory). The blocking gate is
+      # the pull request title (pr-title.yml), which becomes the squash commit
+      # message; blocking every work-in-progress commit only adds friction.
+      - name: Check commit messages (Conventional Commits, advisory)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6.2.1
+        with:
+          configFile: ${{ github.repository == 'aperion-robotics/.github' && 'ci/commitlint/.commitlintrc.yml' || '.aperion-ci/ci/commitlint/.commitlintrc.yml' }}
+          helpURL: https://github.com/aperion-robotics/.github/blob/main/CONTRIBUTING.md#commit-messages

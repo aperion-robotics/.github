@@ -1,0 +1,45 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Workstation &amp; Pre-commit | Aperion</title><link rel="stylesheet" href="style.css"></head><body><header>APERION <b>ROBOTICS</b> / Developer Handbook</header><div class="layout"><aside><strong>CONTENTS</strong><a class="" href="index.html">Overview</a><a class="" href="ci-policy.html">CI Policy</a><a class="active" href="workstation.html">Workstation &amp; Pre-commit</a><a class="" href="vscode.html">VS Code &amp; EditorConfig</a><a class="" href="ros1.html">ROS1 Melodic / Noetic</a><a class="" href="ros2.html">ROS2 Lyrical</a><a class="" href="repository-ci-files.html">Repository CI Files</a><a class="" href="pull-requests.html">Pull Request Workflow</a><a class="" href="contributing-central-ci.html">Contributing to Central CI</a><a class="" href="ci-testing.html">CI Testing &amp; Validation</a></aside><main><article><h1>Workstation and Pre-commit</h1>
+<p><strong>Install VS Code, Git and pre-commit on the Ubuntu host</strong> for both ROS1 and ROS2. Build and test ROS1 code inside the matching container. The approved <code>pre-commit==4.6.2</code> needs Python 3.10+ and Git 2.31+, so it is not suitable for stock Melodic/Noetic containers.</p>
+<h2>1. Install host tools</h2>
+<pre><code class="language-bash">sudo apt update
+sudo apt install -y git curl jq pipx shellcheck
+pipx ensurepath
+# Open a new terminal if ~/.local/bin is not on PATH
+pipx install pre-commit==4.6.2
+pre-commit --version
+</code></pre>
+<h2>2. Obtain the central pre-commit configuration</h2>
+<p>After central CI PR #3 is merged, use <code>main</code>:</p>
+<pre><code class="language-bash">mkdir -p ~/.config/aperion
+git clone https://github.com/aperion-robotics/.github.git ~/.config/aperion/dot-github
+pre-commit validate-config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml
+</code></pre>
+<p>If you already cloned it:</p>
+<pre><code class="language-bash">git -C ~/.config/aperion/dot-github pull --ff-only
+</code></pre>
+<p>Before merge, maintainers evaluating the candidate may explicitly use <code>ci/final-ci-configuration</code>; it is <strong>not</strong> the general rollout ref.</p>
+<h2>3. Install the hook per local repository</h2>
+<pre><code class="language-bash">cd /path/to/aperion-repository
+pre-commit install --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --install-hooks
+test -x .git/hooks/pre-commit &amp;&amp; echo 'Aperion pre-commit hook installed'
+</code></pre>
+<p>When <code>git commit</code> is executed <strong>on the host</strong>, the hook checks staged files. A container-only commit may bypass the host hook.</p>
+<h2>4. Manual checks</h2>
+<pre><code class="language-bash"># Staged changes
+pre-commit run --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml
+
+# Whole repository — occasional adoption/review check
+pre-commit run --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files --show-diff-on-failure
+
+# Changes against default branch
+git fetch origin
+pre-commit run --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --from-ref origin/main --to-ref HEAD --show-diff-on-failure
+</code></pre>
+<p>Advisory hooks run one at a time (blocking in CI for <code>quality_profile=production</code>):</p>
+<pre><code class="language-bash">pre-commit run typos --hook-stage manual --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files
+pre-commit run actionlint --hook-stage manual --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files
+pre-commit run zizmor --hook-stage manual --config ~/.config/aperion/dot-github/ci/precommit/baseline.yaml --all-files
+</code></pre>
+<p>Replace <code>origin/main</code> if needed. If a hook edits files, inspect <code>git diff</code>, stage the result again and retry commit. Avoid <code>sudo pip install</code>, <code>git commit --no-verify</code> and <code>pre-commit autoupdate</code> without central review.</p>
+<p><strong>Further reading:</strong> <a href="https://github.com/aperion-robotics/.github/blob/main/docs/developer/pre-commit.md">pre-commit developer reference</a>.</p>
+</article><footer>Generated from docs/handbook Markdown.</footer></main></div></body></html>
