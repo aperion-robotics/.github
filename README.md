@@ -68,8 +68,7 @@ Required on PR:
   - CodeQL
 ```
 
-ROS distribution properties are independent between the same ROS version (`ros1_melodic` and `ros1_noetic` but not `ros2_lyrical`).
-Currently, ROS 1 and ROS 2 should not be enabled together on the same branch, since their workflows will run on every `package.xml` in the checkout. For the time being, it's better to migrate ROS 2 in a separate repository, or on a new branch that switches the proper flags when it is merged.
+ROS 1 distribution properties are independent (`ros1_melodic` and `ros1_noetic` may both be enabled), but ROS 1 and ROS 2 should not be enabled together on the same branch, since both workflows resolve every `package.xml` in the checkout. For now, migrate ROS 2 in a separate repository, or on a new branch that switches the properties when it is merged.
 
 ---
 
