@@ -68,7 +68,7 @@ Required on PR:
   - CodeQL
 ```
 
-ROS distribution properties are independent because, during migration, a repository may need both ROS 1 and ROS 2 CI enabled.
+ROS 1 distribution properties are independent (`ros1_melodic` and `ros1_noetic` may both be enabled), but ROS 1 and ROS 2 should not be enabled together on the same branch, since both workflows resolve every `package.xml` in the checkout. For now, migrate ROS 2 in a separate repository, or on a new branch that switches the properties when it is merged.
 
 ---
 
@@ -92,8 +92,9 @@ Central GitHub Actions workflows live under:
 
 Third-party Actions are pinned to immutable commit SHAs. Required container images are digest-pinned where applicable.
 
-ROS workflows check out central scripts and allowlists at `${{ github.workflow_sha }}`,
-so the configuration matches the required-workflow revision selected by the ruleset.
+Every workflow that reads files from this repository (pre-commit and commitlint configuration, scripts,
+allowlists) checks it out at `${{ github.workflow_sha }}`: the commit the required workflow was loaded from, i.e.
+the ref selected by the ruleset. Workflow and configuration therefore always come from the same commit.
 See [section 12](#12-changing-central-ci).
 
 ---
@@ -139,7 +140,7 @@ Example ROS1 → ROS2 migration repository:
 ci_managed       = true
 product          = aristos
 quality_profile  = development
-ros1_noetic      = true
+ros1_noetic      = false
 ros2_lyrical     = true
 security_tier    = product
 codeql_required  = true
@@ -448,14 +449,12 @@ external/
 .aperion-ci/
 ```
 
-Consumer repositories use the approved baseline from:
-
-```text
-aperion-robotics/.github@main
-```
+Consumer repositories use the baseline from the same `aperion-robotics/.github` commit as the required workflow
+(`github.workflow_sha`).
 
 The central `.github` repository validates its own workflows, scripts and configurations with
-`ci-self-test.yml` (actionlint, zizmor, shellcheck, script tests, pre-commit and commitlint configuration).
+`ci-self-test.yml` (actionlint, zizmor, shellcheck, script tests, pre-commit and commitlint configuration, generated
+documentation).
 
 ---
 
@@ -626,10 +625,10 @@ Large formatting-only changes to legacy ROS 1 repositories should be avoided unl
 
 ROS repositories may add, per workflow (`ros1-melodic`, `ros1-noetic`, `ros2-lyrical`):
 
-| File                   | Purpose                                                                            |
-| ---------------------- | ---------------------------------------------------------------------------------- |
-| `.ci/<workflow>.repos` | Source dependencies (vcstool format), e.g. other Aperion ROS packages              |
-| `.ci/<workflow>.env`   | Allowlisted options, one `KEY=VALUE` per line, `#` comments                        |
+| File                   | Purpose                                                               |
+| ---------------------- | --------------------------------------------------------------------- |
+| `.ci/<workflow>.repos` | Source dependencies (vcstool format), e.g. other Aperion ROS packages |
+| `.ci/<workflow>.env`   | Allowlisted options, one `KEY=VALUE` per line, `#` comments           |
 
 Private source dependencies:
 
@@ -642,10 +641,10 @@ Private source dependencies:
 
 Options accepted in `.ci/<workflow>.env`:
 
-| Workflow       | Keys                                                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Workflow       | Keys                                                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `ros1-*`       | `ROSDEP_SKIP_KEYS`, `ADDITIONAL_DEBS`, `CMAKE_ARGS`, `TARGET_CMAKE_ARGS`, `UPSTREAM_CMAKE_ARGS`, `CATKIN_LINT_ARGS`, `CLANG_TIDY_ARGS` |
-| `ros2-lyrical` | `ROSDEP_SKIP_KEYS`, `CMAKE_ARGS`                                                                                    |
+| `ros2-lyrical` | `ROSDEP_SKIP_KEYS`, `CMAKE_ARGS`                                                                                                       |
 
 Values are a single line of letters, digits, spaces and `_ . , : = / + * @ -`. Prefer fixing `package.xml`
 to use the correct rosdep key over skipping keys, for example:
@@ -657,6 +656,8 @@ ADDITIONAL_DEBS=libsome-vendor-sdk-dev
 ```
 
 Changes to `.ci/` affect what CI checks; review them like code (CODEOWNERS recommended).
+
+Do not forget to add `.aperion-ci/` and `aperion-upstream` to all consumer repositories' `.gitignore`.
 
 ---
 
@@ -831,14 +832,14 @@ rulesets, which may differ from the proposed branch.
 Use **private, disposable pilot repositories** rather than making experimental changes
 to production repositories. Reference pilot repositories currently include:
 
-| Pilot repository | Scope |
-| --- | --- |
-| `ci-pilot-ros1-melodic-dep` + `ci-pilot-ros1-melodic-app` | Melodic, private source dependency, catkin and lint |
-| `ci-pilot-ros1-noetic-dep` + `ci-pilot-ros1-noetic-app` | Noetic, private source dependency, catkin and lint |
-| `ci-pilot-ros2-lyrical-dep` + `ci-pilot-ros2-lyrical-app` | Lyrical, private source dependency, colcon and ament lint |
-| `ci-pilot-codeql` | CodeQL language detection, analysis and security merge gate |
+| Pilot repository                                          | Scope                                                                                                                                |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `ci-pilot-ros1-melodic-dep` + `ci-pilot-ros1-melodic-app` | Melodic, private source dependency, catkin and lint                                                                                  |
+| `ci-pilot-ros1-noetic-dep` + `ci-pilot-ros1-noetic-app`   | Noetic, private source dependency, catkin and lint                                                                                   |
+| `ci-pilot-ros2-lyrical-dep` + `ci-pilot-ros2-lyrical-app` | Lyrical, private source dependency, colcon and ament lint                                                                            |
+| `ci-pilot-codeql`                                         | Reference repository: CodeQL (C/C++, Python) plus the full ROS 2 Lyrical pipeline, private dependency on `ci-pilot-ros2-lyrical-dep` |
 
-In pilot *application* repositories, keep `ci_managed=true`, `codeql_required=true`,
+In pilot _application_ repositories, keep `ci_managed=true`, `codeql_required=true`,
 and enable only the applicable ROS distribution property. Use `ci_pilot=true`
 where the matching pilot rulesets are configured. Keep pilot required-workflow
 rulesets **scoped to pilot repositories only** and pointing at the branch (or
@@ -864,7 +865,7 @@ run, as the ruleset only enforces **published code-scanning results**.
    should come from the same central commit.
 3. **Run a positive test:** open/update each relevant pilot PR; verify
    checkout, `rosdep`, source dependency import where applicable, build,
-   unit tests and linters all pass. Check the *test report*, not only the
+   unit tests and linters all pass. Check the _test report_, not only the
    green overall check. Record the run URLs and commit SHAs.
 4. **Test without source dependencies:** remove `.ci/<workflow>.repos` on a
    separate pilot PR and verify that GitHub App token creation and dependency
@@ -905,17 +906,17 @@ In the central PR description or a linked validation document, capture:
 
 A practical validation matrix (mark `N/A` only with a reason):
 
-| Scenario | Expected result |
-| --- | --- |
-| Melodic + private source dependency | PASS |
-| Noetic + private source dependency | PASS |
-| Lyrical + private source dependency | PASS |
-| Lyrical without `.repos` | PASS; GitHub App import steps skipped |
-| Deliberately failing GTest | FAIL; merge blocked |
-| Disallowed private dependency (if changed) | FAIL before build |
-| CodeQL clean PR (if security configuration changed) | Analysis complete; policy satisfied |
-| CodeQL alert above policy threshold (if relevant) | Merge blocked |
-| Central `ci-self-test.yml` | PASS; required gate verified |
+| Scenario                                            | Expected result                       |
+| --------------------------------------------------- | ------------------------------------- |
+| Melodic + private source dependency                 | PASS                                  |
+| Noetic + private source dependency                  | PASS                                  |
+| Lyrical + private source dependency                 | PASS                                  |
+| Lyrical without `.repos`                            | PASS; GitHub App import steps skipped |
+| Deliberately failing GTest                          | FAIL; merge blocked                   |
+| Disallowed private dependency (if changed)          | FAIL before build                     |
+| CodeQL clean PR (if security configuration changed) | Analysis complete; policy satisfied   |
+| CodeQL alert above policy threshold (if relevant)   | Merge blocked                         |
+| Central `ci-self-test.yml`                          | PASS; required gate verified          |
 
 Useful GitHub CLI commands:
 
@@ -939,10 +940,10 @@ sources, logs, PR descriptions or the public `.github` repository.
 
 ### Versioning
 
-Today the rulesets and `APERION_CI_REF` both use `main`, so every merge changes the gates of all managed
-repositories at once. Recommended next step: release tags (`v1.2.0`). In the release commit set
-`APERION_CI_REF` to the new tag, tag it, then move the rulesets to the tag; the pilot rulesets keep following
-the branch under test.
+Today the production rulesets use `main`, so every merge changes the gates of all managed repositories at once.
+Recommended next step: release tags (`v1.2.0`). Tag the release and move the production rulesets to the tag; the
+workflows follow automatically, because they read their configuration at `github.workflow_sha`. The pilot rulesets
+keep following the branch under test.
 
 > Organization rulesets, custom properties and Advanced Security configurations are **not stored in this Git repository**. Keep this README updated when organization-level settings change.
 
